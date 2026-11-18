@@ -1,0 +1,63 @@
+/*
+ * Sketchbook theme (from Auction XI): a coach's notebook on a wooden desk.
+ * Ruled paper, spiral binding, pencil lines, units circled in pen.
+ */
+[data-theme="sketchbook"] {
+  color-scheme: light;
+  --bg: #c4a77c;
+  --surface: #fdfbf3;
+  --surface-2: #f1ecdb;
+  --surface-hover: #e9e2cc;
+  --ink: #2e3036;
+  --ink-soft: #77756d;
+  --line: #d9d2bd;
+  --line-strong: #2e3036;
+  --accent: #ffe14d;
+  --accent-ink: #2e3036;
+  --team-red: #c0262d;
+  --team-blue: #1f3fa8;
+  --glyph-bg: #fdfbf3;
+  --glyph-ink: #2e3036;
+  --scrim: rgba(90, 65, 30, 0.35);
+
+  --font-display: 'Caveat', 'Segoe Print', cursive;
+  --display-weight: 700;
+  --font-body: 'Kalam', 'Segoe Print', cursive;
+  --title-size: 30px;
+  --heading-size: 38px;
+
+  --radius: 4px;
+  --radius-sm: 12px 4px 14px 5px / 5px 14px 4px 12px;
+  --shadow: 0 1px 1px rgba(0, 0, 0, 0.08), 0 16px 28px -16px rgba(60, 38, 10, 0.55);
+}
+
+/* wooden desk */
+[data-theme="sketchbook"] body {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 240, 210, 0.35), rgba(255, 240, 210, 0) 60%),
+    repeating-linear-gradient(88deg, rgba(90, 55, 20, 0.06) 0 2px, rgba(0, 0, 0, 0) 2px 11px, rgba(90, 55, 20, 0.04) 11px 13px, rgba(0, 0, 0, 0) 13px 31px),
+    linear-gradient(180deg, #c9ad83, #b59366);
+}
+
+[data-theme="sketchbook"] .bar h1 { color: var(--ink); text-decoration: underline wavy var(--team-red) 2px; text-underline-offset: 6px; }
+[data-theme="sketchbook"] .overlay-card h2 { color: var(--ink); }
+
+/* ruled paper panels with a red margin line */
+[data-theme="sketchbook"] .overlay-card {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0) 22px, rgba(214, 72, 72, 0.5) 22px 24px, rgba(0, 0, 0, 0) 24px),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0 29px, rgba(80, 130, 205, 0.2) 29px 30px),
+    var(--surface);
+  border: none;
+}
+
+/* pen-drawn buttons; highlighter primary */
+[data-theme="sketchbook"] button { border-width: 2px; background: rgba(253, 251, 243, 0.7); font-size: 16px; }
+[data-theme="sketchbook"] button.primary {
+  background: linear-gradient(176deg, rgba(0, 0, 0, 0) 8%, var(--accent) 8% 92%, rgba(0, 0, 0, 0) 92%), var(--surface);
+  border-color: var(--ink);
+}
+[data-theme="sketchbook"] button:hover:not(:disabled) { transform: translate(-1px, -2px) rotate(-0.6deg); box-shadow: 3px 4px 0 var(--ink); }
+[data-theme="sketchbook"] .pick-glyph,
+[data-theme="sketchbook"] .legend-item b { border-radius: 50% 44% 54% 47% / 47% 54% 44% 50%; }
+[data-theme="sketchbook"] .legend-item b { border: 1.5px solid var(--ink); line-height: 19px; }

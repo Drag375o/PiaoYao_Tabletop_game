@@ -1,0 +1,56 @@
+/*
+ * Chalkboard theme (from Auction XI): black slate in a walnut frame,
+ * chalk lines and chalk-drawn unit circles.
+ */
+[data-theme="chalkboard"] {
+  color-scheme: dark;
+  --bg: #171614;
+  --surface: #262a28;
+  --surface-2: #323734;
+  --surface-hover: #3c423e;
+  --ink: #efece2;
+  --ink-soft: rgba(239, 236, 226, 0.62);
+  --line: rgba(239, 236, 226, 0.26);
+  --line-strong: rgba(239, 236, 226, 0.85);
+  --accent: #f3d36b;
+  --accent-ink: #1f2220;
+  --team-red: #ff9b90;
+  --team-blue: #93caff;
+  --glyph-bg: transparent;
+  --glyph-ink: #efece2;
+  --scrim: rgba(12, 12, 11, 0.6);
+
+  --font-display: 'Cabin Sketch', 'Segoe Print', cursive;
+  --display-weight: 700;
+  --font-body: 'Patrick Hand', 'Segoe Print', cursive;
+  --title-size: 24px;
+  --heading-size: 30px;
+
+  --radius: 6px;
+  --radius-sm: 8px 5px 9px 4px / 5px 9px 4px 8px;
+  --shadow: 0 18px 34px -14px rgba(0, 0, 0, 0.75), 0 3px 6px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="chalkboard"] body {
+  background:
+    radial-gradient(ellipse at 50% -10%, #2d2a25 0%, rgba(45, 42, 37, 0) 60%),
+    linear-gradient(180deg, #1b1a17, #121110);
+}
+
+/* chalky text */
+[data-theme="chalkboard"] .bar h1,
+[data-theme="chalkboard"] .overlay-card h2 { text-shadow: 0 0 2px rgba(255, 255, 255, 0.35); }
+
+/* chalk-outlined buttons, units and turn pill */
+[data-theme="chalkboard"] button { background: transparent; border-width: 2px; font-size: 16px; }
+[data-theme="chalkboard"] button.primary { background: transparent; color: var(--accent); border-color: var(--accent); }
+[data-theme="chalkboard"] button:hover:not(:disabled) { background: transparent; box-shadow: 3px 4px 0 rgba(239, 236, 226, 0.5); }
+[data-theme="chalkboard"] .turn { background: transparent; border: 2px solid var(--ink); color: var(--ink); }
+[data-theme="chalkboard"] .turn.red { border-color: var(--team-red); color: var(--team-red); }
+[data-theme="chalkboard"] .turn.blue { border-color: var(--team-blue); color: var(--team-blue); }
+[data-theme="chalkboard"] .pick-glyph,
+[data-theme="chalkboard"] .legend-item b { border-radius: 52% 46% 50% 48% / 46% 52% 48% 50%; }
+[data-theme="chalkboard"] .legend-item b { border: 2px solid var(--ink); line-height: 18px; }
+[data-theme="chalkboard"] .overlay-card,
+[data-theme="chalkboard"] .bar,
+[data-theme="chalkboard"] .legend { background-color: #262a28; }

@@ -5,7 +5,6 @@
   const MAX_DRAG = 150;        // world px of pull-back for full power
   const MAX_SPEED = 1150;      // default launch speed at full power (px/s)
   const MIN_POWER = 0.06;      // releases weaker than this are cancelled
-  const TEAM_COLORS = { red: '#c8483b', blue: '#3b78c8' };
   const GLYPH_FONT = '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Hiragino Sans GB", sans-serif';
   const TEAM_NAMES = { red: 'Red', blue: 'Blue' };
   const AIM_HELP = 'Drag one of your units backwards and release to launch it.';
@@ -39,10 +38,12 @@
   let view = { scale: 1, ox: 0, oy: 0 };
   let lastTime = performance.now();
 
+  let nextId = 1;   // stable id per unit, seeds the hand-drawn outlines
+
   function makeUnit(type, team, x, y) {
     const def = UNITS[type];
     return Physics.makeBody({
-      kind: 'unit', type, team, x, y,
+      id: nextId++, kind: 'unit', type, team, x, y,
       r: def.r, mass: def.mass, friction: def.friction, restitution: def.restitution,
     });
   }
@@ -395,6 +396,18 @@
   document.getElementById('play-again').addEventListener('click', newMatch);
   window.addEventListener('resize', resize);
 
+  function buildThemeSwitch() {
+    const select = document.getElementById('theme');
+    for (const t of Themes.LIST) {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.name;
+      select.append(opt);
+    }
+    select.value = Themes.current.id;
+    select.addEventListener('change', () => Themes.set(select.value));
+  }
+
   function buildLegend() {
     const el = document.getElementById('legend');
     el.innerHTML = '';
@@ -409,56 +422,16 @@
     }
   }
 
-  // ---------- rendering ----------
+  // ---------- rendering (colours come from the active theme) ----------
 
-  function drawBoard() {
-    // board rim
-    ctx.fillStyle = '#5b3d22';
-    roundRect(BOARD.x - 14, BOARD.y - 14, BOARD.w + 28, BOARD.h + 28, 14);
-    ctx.fill();
-
-    // playing surface
-    const g = ctx.createLinearGradient(BOARD.x, BOARD.y, BOARD.x, BOARD.y + BOARD.h);
-    g.addColorStop(0, '#c9a46b');
-    g.addColorStop(1, '#b38c55');
-    ctx.fillStyle = g;
-    ctx.fillRect(BOARD.x, BOARD.y, BOARD.w, BOARD.h);
-
-    // half-way line and team halves
-    ctx.fillStyle = 'rgba(200,72,59,0.08)';
-    ctx.fillRect(BOARD.x, BOARD.y, BOARD.w / 2, BOARD.h);
-    ctx.fillStyle = 'rgba(59,120,200,0.08)';
-    ctx.fillRect(BOARD.x + BOARD.w / 2, BOARD.y, BOARD.w / 2, BOARD.h);
-    ctx.strokeStyle = 'rgba(80,50,20,0.45)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([10, 8]);
-    ctx.beginPath();
-    ctx.moveTo(BOARD.x + BOARD.w / 2, BOARD.y);
-    ctx.lineTo(BOARD.x + BOARD.w / 2, BOARD.y + BOARD.h);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // edge line: crossing it means elimination
-    ctx.strokeStyle = 'rgba(60,30,10,0.8)';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(BOARD.x, BOARD.y, BOARD.w, BOARD.h);
-  }
-
-  function roundRect(x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
+  function teamColor(team) { return Themes.current.team[team]; }
 
   function drawAuras() {
+    const T = Themes.current;
     for (const f of units()) {
       if (f.type !== 'flag' || f.falling) continue;
-      ctx.fillStyle = 'rgba(240,192,64,0.12)';
-      ctx.strokeStyle = 'rgba(200,150,30,0.5)';
+      ctx.fillStyle = T.aura.fill;
+      ctx.strokeStyle = T.aura.stroke;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 5]);
       ctx.beginPath();
@@ -474,31 +447,105 @@
   }
 
   function drawPiece(b) {
+    const T = Themes.current;
     const t = fallFactor(b);
     const r = b.r * (1 - 0.6 * t);
+    const color = teamColor(b.team);
     ctx.save();
     ctx.globalAlpha = 1 - t;
 
-    // shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath();
-    ctx.ellipse(b.x + 3, b.y + 4, r, r * 0.9, 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (T.shadow) {
+      ctx.fillStyle = T.shadow;
+      ctx.beginPath();
+      ctx.ellipse(b.x + 3, b.y + 4, r, r * 0.9, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-    // disc
-    const g = ctx.createRadialGradient(b.x - r * 0.35, b.y - r * 0.35, r * 0.1, b.x, b.y, r);
-    g.addColorStop(0, '#f6ead2');
-    g.addColorStop(1, '#d8c39c');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.lineWidth = Math.max(2, r * 0.18);
-    ctx.strokeStyle = TEAM_COLORS[b.team];
-    ctx.stroke();
+    let glyphColor = color;
+    if (T.piece === 'disc') {
+      // cream game disc with a team-coloured rim
+      const g = ctx.createRadialGradient(b.x - r * 0.35, b.y - r * 0.35, r * 0.1, b.x, b.y, r);
+      g.addColorStop(0, '#f6ead2');
+      g.addColorStop(1, '#d8c39c');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = Math.max(2, r * 0.18);
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    } else if (T.piece === 'metal') {
+      // metallic token with a soft glow
+      const g = ctx.createRadialGradient(b.x - r * 0.4, b.y - r * 0.5, r * 0.05, b.x, b.y, r);
+      g.addColorStop(0, Themes.mix(color, '#ffffff', 0.55));
+      g.addColorStop(0.45, color);
+      g.addColorStop(1, Themes.mix(color, '#000000', 0.55));
+      ctx.shadowColor = Themes.alpha(color, 0.7);
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, r - 1, 0, Math.PI * 2);
+      ctx.stroke();
+      glyphColor = '#ffffff';
+    } else if (T.piece === 'kit') {
+      // kit-coloured disc with a white rim
+      const g = ctx.createLinearGradient(b.x - r * 0.4, b.y - r, b.x + r * 0.4, b.y + r);
+      g.addColorStop(0, Themes.mix(color, '#ffffff', 0.25));
+      g.addColorStop(0.5, color);
+      g.addColorStop(1, Themes.mix(color, '#000000', 0.25));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      glyphColor = '#ffffff';
+    } else if (T.piece === 'chalk') {
+      // chalk-drawn circle: faint tint, firm stroke, dusty halo
+      Themes.roughCircle(ctx, b.x, b.y, r, r * 0.06, b.id * 37);
+      ctx.fillStyle = Themes.alpha(color, 0.12);
+      ctx.fill();
+      ctx.strokeStyle = Themes.alpha(color, 0.18);
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    } else if (T.piece === 'pen') {
+      // circled in pen, lightly hatched
+      ctx.save();
+      Themes.roughCircle(ctx, b.x, b.y, r, r * 0.07, b.id * 53);
+      ctx.fillStyle = 'rgba(253,251,243,0.85)';
+      ctx.fill();
+      ctx.clip();
+      ctx.strokeStyle = Themes.alpha(color, 0.22);
+      ctx.lineWidth = 1.5;
+      for (let d = -2 * r; d <= 2 * r; d += 5) {
+        ctx.beginPath();
+        ctx.moveTo(b.x + d - r, b.y + r);
+        ctx.lineTo(b.x + d + r, b.y - r);
+        ctx.stroke();
+      }
+      ctx.restore();
+      Themes.roughCircle(ctx, b.x, b.y, r, r * 0.07, b.id * 53);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
 
     // unit glyph
-    ctx.fillStyle = TEAM_COLORS[b.team];
+    ctx.fillStyle = glyphColor;
+    if (T.piece === 'chalk') {
+      ctx.shadowColor = Themes.alpha(color, 0.6);
+      ctx.shadowBlur = 3;
+    }
     ctx.font = `bold ${Math.round(r * 1.05)}px ${GLYPH_FONT}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -507,19 +554,20 @@
   }
 
   function drawProjectile(b) {
+    const T = Themes.current;
     const t = fallFactor(b);
     ctx.save();
     ctx.globalAlpha = 1 - t;
     if (b.projectile === 'arrow') {
       const sp = Math.hypot(b.vx, b.vy) || 1;
       const ux = b.vx / sp, uy = b.vy / sp;
-      ctx.strokeStyle = '#3a2410';
+      ctx.strokeStyle = T.shaft;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(b.x - ux * 22, b.y - uy * 22);
       ctx.lineTo(b.x + ux * 4, b.y + uy * 4);
       ctx.stroke();
-      ctx.fillStyle = TEAM_COLORS[b.team];
+      ctx.fillStyle = teamColor(b.team);
       ctx.beginPath();
       ctx.moveTo(b.x + ux * 9, b.y + uy * 9);
       ctx.lineTo(b.x - uy * 5, b.y + ux * 5);
@@ -529,8 +577,8 @@
     } else {
       const r = b.r * (1 - 0.6 * t);
       const g = ctx.createRadialGradient(b.x - r * 0.4, b.y - r * 0.4, r * 0.1, b.x, b.y, r);
-      g.addColorStop(0, '#777');
-      g.addColorStop(1, '#1d1d1d');
+      g.addColorStop(0, T.ball[0]);
+      g.addColorStop(1, T.ball[1]);
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
@@ -541,12 +589,13 @@
 
   function drawAim() {
     if (!drag) return;
+    const A = Themes.current.aim;
     const b = drag.body;
     const def = UNITS[b.type];
     const { nx, ny, power } = launchVector(drag);
 
     // pull band back to the pointer
-    ctx.strokeStyle = 'rgba(40,25,10,0.6)';
+    ctx.strokeStyle = A.band;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
@@ -556,7 +605,7 @@
 
     const boosted = flagBoost(b) > 1;
     if (boosted) {
-      ctx.strokeStyle = 'rgba(240,192,64,0.9)';
+      ctx.strokeStyle = Themes.current.aura.stroke;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r + 13, 0, Math.PI * 2);
@@ -568,7 +617,7 @@
     if (def.fires === 'arrow') {
       // archer trajectory indicator: exact line to the first unit it will strike
       const hit = predictArrowHit(b, nx, ny);
-      ctx.strokeStyle = 'rgba(176,40,28,0.85)';
+      ctx.strokeStyle = A.hit;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(hit.ox, hit.oy);
@@ -577,14 +626,14 @@
       if (hit.unit) {
         const kx = hit.unit.x - hit.cx, ky = hit.unit.y - hit.cy;
         const kl = Math.hypot(kx, ky) || 1;
-        ctx.fillStyle = '#b0281c';
+        ctx.fillStyle = A.hit;
         ctx.beginPath();
         ctx.arc(hit.cx, hit.cy, 4, 0, Math.PI * 2);
         ctx.fill();
         // knock-back direction on the target
         const sx = hit.unit.x, sy = hit.unit.y;
         const ex = sx + kx / kl * 50, ey = sy + ky / kl * 50;
-        ctx.strokeStyle = '#b0281c';
+        ctx.strokeStyle = A.hit;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(sx, sy);
@@ -594,7 +643,7 @@
       }
     } else {
       const len = 60 + power * 220;
-      ctx.strokeStyle = power > 0.85 ? '#b0281c' : '#3a2410';
+      ctx.strokeStyle = power > 0.85 ? A.strong : A.line;
       ctx.lineWidth = def.fires === 'cannonball' ? 5 : 3;
       ctx.setLineDash([8, 7]);
       ctx.beginPath();
@@ -605,7 +654,7 @@
     }
 
     // power ring
-    ctx.strokeStyle = '#f0c040';
+    ctx.strokeStyle = A.ring;
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(b.x, b.y, b.r + 7, -Math.PI / 2, -Math.PI / 2 + power * Math.PI * 2);
@@ -625,9 +674,9 @@
   function drawSetupZone() {
     const z = setupZone(setupTeam);
     const other = setupZone(setupTeam === 'red' ? 'blue' : 'red');
-    ctx.fillStyle = 'rgba(20,14,8,0.35)';
+    ctx.fillStyle = Themes.current.dim;
     ctx.fillRect(other.x, other.y, other.w, other.h);
-    ctx.strokeStyle = TEAM_COLORS[setupTeam];
+    ctx.strokeStyle = teamColor(setupTeam);
     ctx.lineWidth = 3;
     ctx.setLineDash([12, 8]);
     ctx.strokeRect(z.x + 4, z.y + 4, z.w - 8, z.h - 8);
@@ -637,7 +686,7 @@
   // soft pulsing ring around the units the current player may launch or move
   function drawTurnHighlights(team) {
     const pulse = 0.35 + 0.25 * Math.sin(performance.now() / 300);
-    ctx.strokeStyle = TEAM_COLORS[team];
+    ctx.strokeStyle = teamColor(team);
     ctx.globalAlpha = pulse;
     ctx.lineWidth = 3;
     for (const b of units()) {
@@ -650,11 +699,12 @@
   }
 
   function render(idle) {
+    const T = Themes.current;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#0f0c09';
+    ctx.fillStyle = T.void;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(view.scale, 0, 0, view.scale, view.ox, view.oy);
-    drawBoard();
+    T.drawBoard(ctx, BOARD, T);
     if (phase === 'place') drawSetupZone();
     drawAuras();
     if (phase === 'place') drawTurnHighlights(setupTeam);
@@ -700,8 +750,11 @@
     get turn() { return turn; },
     get winner() { return winner; },
     get phase() { return phase; },
+    get theme() { return Themes.current.id; },
   };
 
+  Themes.load();
+  buildThemeSwitch();
   resize();
   buildLegend();
   newMatch();

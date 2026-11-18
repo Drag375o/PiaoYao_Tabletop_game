@@ -1,0 +1,31 @@
+/*
+ * Battleboard theme (default): warm wood and sand, cream game discs.
+ */
+[data-theme="classic"] {
+  color-scheme: dark;
+  --bg: #16130f;
+  --surface: #241e17;
+  --surface-2: #3a3025;
+  --surface-hover: #4a3d2e;
+  --ink: #f1e6d2;
+  --ink-soft: #b3a48a;
+  --line: #3a3025;
+  --line-strong: #5a4a36;
+  --accent: #d9a441;
+  --accent-hover: #e8b65a;
+  --accent-ink: #2a1d0c;
+  --team-red: #c8483b;
+  --team-blue: #3b78c8;
+  --glyph-bg: #f1e6d2;
+  --glyph-ink: #3a2410;
+  --scrim: rgba(10, 8, 6, 0.55);
+
+  --font-display: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --display-weight: 700;
+  --font-body: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --title-size: 18px;
+
+  --radius: 12px;
+  --radius-sm: 6px;
+  --shadow: 0 18px 34px -14px rgba(0, 0, 0, 0.7);
+}

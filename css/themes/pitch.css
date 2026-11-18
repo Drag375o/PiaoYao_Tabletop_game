@@ -1,0 +1,52 @@
+/*
+ * Football pitch theme (from Auction XI): mown grass, white pitch
+ * markings, kit-coloured discs, yellow-card primary buttons.
+ */
+[data-theme="pitch"] {
+  color-scheme: dark;
+  --option-bg: #0f3d1b;
+  --bg: #2b8236;
+  --surface: rgba(10, 48, 20, 0.86);
+  --surface-2: rgba(255, 255, 255, 0.1);
+  --surface-hover: rgba(255, 255, 255, 0.2);
+  --ink: #ffffff;
+  --ink-soft: rgba(255, 255, 255, 0.78);
+  --line: rgba(255, 255, 255, 0.32);
+  --line-strong: #ffffff;
+  --accent: #ffd60a;
+  --accent-ink: #111111;
+  --team-red: #ff4545;
+  --team-blue: #3d8bff;
+  --glyph-bg: #ffffff;
+  --glyph-ink: #0f3d1b;
+  --scrim: rgba(5, 30, 12, 0.5);
+
+  --font-display: 'Bebas Neue', 'Impact', 'Arial Narrow', sans-serif;
+  --display-weight: 400;
+  --font-body: 'Barlow', 'Segoe UI', sans-serif;
+  --title-size: 28px;
+  --heading-size: 38px;
+
+  --radius: 10px;
+  --radius-sm: 8px;
+  --shadow: 0 18px 34px -16px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="pitch"] body {
+  background:
+    radial-gradient(ellipse at 50% -15%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 55%),
+    repeating-linear-gradient(90deg, #2e8a39 0 110px, #298033 110px 220px);
+}
+
+[data-theme="pitch"] .bar h1,
+[data-theme="pitch"] .overlay-card h2 { letter-spacing: 0.05em; }
+[data-theme="pitch"] .overlay-card { border: 2px solid rgba(255, 255, 255, 0.85); backdrop-filter: blur(6px); }
+
+/* white kit buttons with a yellow-card primary */
+[data-theme="pitch"] button { border-width: 2px; font-weight: 600; }
+[data-theme="pitch"] button.primary { border-color: var(--accent); }
+[data-theme="pitch"] button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3); }
+[data-theme="pitch"] .turn { border: 2px solid #fff; }
+[data-theme="pitch"] .pick-glyph { color: #fff !important; border-color: #fff !important; }
+[data-theme="pitch"] .pick-glyph.red { background: var(--team-red); }
+[data-theme="pitch"] .pick-glyph.blue { background: var(--team-blue); }

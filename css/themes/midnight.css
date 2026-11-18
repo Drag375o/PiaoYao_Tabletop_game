@@ -1,0 +1,64 @@
+/*
+ * Midnight theme (from Auction XI): charcoal tactics board in a black
+ * tablet bezel, crisp white lines, gold accents, metallic tokens.
+ */
+[data-theme="midnight"] {
+  color-scheme: dark;
+  --bg: #0b0d10;
+  --surface: #15181d;
+  --surface-2: #1f242b;
+  --surface-hover: #2a3039;
+  --ink: #f1f3f6;
+  --ink-soft: #8b94a3;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --accent: #dcb75e;
+  --accent-ink: #17130a;
+  --team-red: #ff5d7a;
+  --team-blue: #4ea8ff;
+  --glyph-bg: #1f242b;
+  --glyph-ink: #f1f3f6;
+  --scrim: rgba(5, 6, 8, 0.6);
+
+  --font-display: 'Rajdhani', 'Segoe UI', sans-serif;
+  --display-weight: 700;
+  --font-body: 'Inter', 'Segoe UI', sans-serif;
+  --title-size: 22px;
+  --heading-size: 28px;
+
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 0 26px 50px -22px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="midnight"] body {
+  background:
+    radial-gradient(ellipse at 50% -25%, #233040 0%, rgba(35, 48, 64, 0) 60%),
+    radial-gradient(ellipse at 100% 100%, rgba(220, 183, 94, 0.07), rgba(220, 183, 94, 0) 50%),
+    #0b0d10;
+}
+
+/* clean, upright uppercase type */
+[data-theme="midnight"] .bar h1,
+[data-theme="midnight"] .overlay-card h2,
+[data-theme="midnight"] button { text-transform: uppercase; letter-spacing: 0.06em; }
+[data-theme="midnight"] .bar h1 { border-bottom: 2px solid var(--accent); padding-bottom: 2px; }
+
+/* gold primary, glassy secondary */
+[data-theme="midnight"] button.primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, #f3dc98, #d3a948 55%, #b98c30);
+}
+[data-theme="midnight"] button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px -8px rgba(220, 183, 94, 0.55);
+}
+[data-theme="midnight"] .turn { box-shadow: 0 0 16px -4px currentColor; }
+[data-theme="midnight"] .turn.red { box-shadow: 0 0 18px -4px var(--team-red); }
+[data-theme="midnight"] .turn.blue { box-shadow: 0 0 18px -4px var(--team-blue); }
+[data-theme="midnight"] .pick-glyph {
+  color: #fff !important;
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 60%), var(--surface-2);
+}
+[data-theme="midnight"] .pick-glyph.red { background-color: var(--team-red); }
+[data-theme="midnight"] .pick-glyph.blue { background-color: var(--team-blue); }

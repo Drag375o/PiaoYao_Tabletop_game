@@ -7,6 +7,13 @@ A static HTML/canvas site with no build step, so Netlify can serve the folder as
 
 **Run locally:** from the project folder run `python -m http.server 8000` and open http://localhost:8000.
 
+**Board themes:** pick one from the **Board** menu in the top bar. Your choice is remembered in this browser. The styles come from the Auction XI project's themes:
+- **Battleboard** (default): warm wood and sand with cream game discs.
+- **Midnight**: charcoal tactics board in a black bezel, with gold accents and metallic tokens.
+- **Chalkboard**: slate in a walnut frame, with chalk lines and chalk-drawn units.
+- **Football pitch**: mown grass and white markings, with kit-coloured discs.
+- **Sketchbook**: ruled notebook paper with spiral binding, and units circled in pen.
+
 **Controls:** press on a piece, drag backwards (like a slingshot) and release. A longer pull gives more force (the yellow ring shows power). A very short pull cancels the launch.
 
 **Current status (step 4 – army selection and formation):**

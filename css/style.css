@@ -1,12 +1,8 @@
-:root {
-  --bg: #16130f;
-  --panel: #241e17;
-  --text: #f1e6d2;
-  --muted: #b3a48a;
-  --accent: #d9a441;
-  --red: #c8483b;
-  --blue: #3b78c8;
-}
+/*
+ * Layout and components, shared by every theme.
+ * Colours, fonts and radii come from variables each theme file
+ * (css/themes/*.css) defines on [data-theme="…"].
+ */
 
 * { box-sizing: border-box; }
 
@@ -14,8 +10,8 @@ html, body {
   margin: 0;
   height: 100%;
   background: var(--bg);
-  color: var(--text);
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  font-family: var(--font-body);
 }
 
 body {
@@ -26,16 +22,18 @@ body {
 .bar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px 16px;
   padding: 10px 16px;
-  background: var(--panel);
-  border-bottom: 1px solid #3a3025;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
 }
 
 .bar h1 {
   margin: 0;
-  font-size: 18px;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: var(--title-size, 20px);
   letter-spacing: 0.04em;
   color: var(--accent);
 }
@@ -43,7 +41,7 @@ body {
 .status {
   flex: 1;
   min-width: 200px;
-  color: var(--muted);
+  color: var(--ink-soft);
   font-size: 14px;
 }
 
@@ -53,12 +51,31 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: #fff;
-  background: #555;
+  background: var(--surface-2);
   white-space: nowrap;
 }
 
-.turn.red { background: var(--red); }
-.turn.blue { background: var(--blue); }
+.turn.red { background: var(--team-red); }
+.turn.blue { background: var(--team-blue); }
+
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.theme-switch select {
+  padding: 4px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+}
+
+.theme-switch select option { background: var(--option-bg, var(--surface)); color: var(--ink); }
 
 .overlay {
   position: absolute;
@@ -66,16 +83,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 8, 6, 0.55);
+  background: var(--scrim);
   padding: 16px;
 }
 
 .overlay[hidden] { display: none; }
 
 .overlay-card {
-  background: var(--panel);
-  border: 1px solid #5a4a36;
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   padding: 24px 32px;
   text-align: center;
   max-width: 360px;
@@ -83,26 +101,30 @@ body {
 
 .overlay-card h2 {
   margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: var(--heading-size, 24px);
   color: var(--accent);
 }
 
 .overlay-card p {
   margin: 0 0 18px;
-  color: var(--muted);
+  color: var(--ink-soft);
 }
 
 button {
-  background: #3a3025;
-  color: var(--text);
-  border: 1px solid #5a4a36;
-  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
   padding: 6px 14px;
   font: inherit;
   font-size: 14px;
   cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
 
-button:hover { background: #4a3d2e; }
+button:hover:not(:disabled) { background: var(--surface-hover); }
 
 button:disabled {
   opacity: 0.4;
@@ -112,13 +134,15 @@ button:disabled {
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #2a1d0c;
+  color: var(--accent-ink);
   font-weight: 600;
 }
 
-button.primary:hover:not(:disabled) { background: #e8b65a; }
+button.primary:hover:not(:disabled) { background: var(--accent-hover, var(--accent)); }
 
 button[hidden] { display: none; }
+
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 .setup-card {
   max-width: 420px;
@@ -139,7 +163,7 @@ button[hidden] { display: none; }
   align-items: center;
   gap: 10px;
   padding: 7px 0;
-  border-bottom: 1px solid #3a3025;
+  border-bottom: 1px solid var(--line);
 }
 
 .pick-glyph {
@@ -149,14 +173,14 @@ button[hidden] { display: none; }
   line-height: 30px;
   text-align: center;
   border-radius: 50%;
-  background: #f1e6d2;
+  background: var(--glyph-bg);
   border: 3px solid;
   font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
   font-size: 16px;
 }
 
-.pick-glyph.red { color: var(--red); border-color: var(--red); }
-.pick-glyph.blue { color: var(--blue); border-color: var(--blue); }
+.pick-glyph.red { color: var(--team-red); border-color: var(--team-red); }
+.pick-glyph.blue { color: var(--team-blue); border-color: var(--team-blue); }
 
 .pick-name {
   flex: 1;
@@ -165,7 +189,7 @@ button[hidden] { display: none; }
   font-size: 14px;
 }
 
-.pick-name small { color: var(--muted); }
+.pick-name small { color: var(--ink-soft); }
 
 .pick-row button {
   width: 32px;
@@ -181,7 +205,7 @@ button[hidden] { display: none; }
 
 .pick-total {
   margin-bottom: 14px;
-  color: var(--muted);
+  color: var(--ink-soft);
   font-size: 14px;
 }
 
@@ -203,10 +227,10 @@ button[hidden] { display: none; }
   justify-content: center;
   gap: 6px 18px;
   padding: 8px 16px;
-  background: var(--panel);
-  border-top: 1px solid #3a3025;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
   font-size: 13px;
-  color: var(--muted);
+  color: var(--ink-soft);
 }
 
 .legend-item b {
@@ -217,8 +241,8 @@ button[hidden] { display: none; }
   line-height: 22px;
   text-align: center;
   border-radius: 50%;
-  background: #f1e6d2;
-  color: #3a2410;
+  background: var(--glyph-bg);
+  color: var(--glyph-ink);
   font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
   font-size: 13px;
 }
