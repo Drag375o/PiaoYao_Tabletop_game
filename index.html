@@ -36,6 +36,7 @@
         <div id="mode-chips" class="choice-row">
           <button class="chip" type="button" data-mode="cpu">vs Computer</button>
           <button class="chip" type="button" data-mode="pvp">2 players · same screen</button>
+          <button class="chip" type="button" data-mode="trio">3 players · same screen</button>
         </div>
         <div id="level-row" class="level-row" hidden>
           <span>Computer difficulty</span>
@@ -50,7 +51,7 @@
       <div class="field">
         <h2 class="step"><span class="num">2</span>Commanders</h2>
         <p id="commanders-note" class="field-note"></p>
-        <div class="commanders">
+        <div id="commanders" class="commanders">
           <div class="commander red">
             <label class="name-label" for="name-red">Red army · plays first</label>
             <input id="name-red" class="name-input" maxlength="16" autocomplete="off" spellcheck="false">
@@ -58,6 +59,10 @@
           <div class="commander blue">
             <label id="label-blue" class="name-label" for="name-blue">Blue army</label>
             <input id="name-blue" class="name-input" maxlength="16" autocomplete="off" spellcheck="false">
+          </div>
+          <div id="commander-purple" class="commander purple" hidden>
+            <label class="name-label" for="name-purple">Purple army</label>
+            <input id="name-purple" class="name-input" maxlength="16" autocomplete="off" spellcheck="false">
           </div>
         </div>
       </div>

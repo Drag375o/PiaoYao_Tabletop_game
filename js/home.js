@@ -3,27 +3,34 @@
 (() => {
   const NAMES_KEY = 'piaoyao.names';
   const SETTINGS_KEY = 'piaoyao.settings';
-  const DEFAULT_NAMES = { red: 'Red', blue: 'Blue' };
+  const DEFAULT_NAMES = { red: 'Red', blue: 'Blue', purple: 'Purple' };
+  const TEAM_LABELS = { red: 'Red', blue: 'Blue', purple: 'Purple' };
+  // armies taking part in each mode
+  const MODE_TEAMS = { cpu: ['red', 'blue'], pvp: ['red', 'blue'], trio: ['red', 'blue', 'purple'] };
   const DEFAULT_SETTINGS = { mode: 'cpu', level: 'normal' };
   const CPU_NAME = 'Computer';
 
   const RULES = [
-    ['Pick your opponent', 'Play the computer, or a friend on the same screen. Red always plays first.'],
+    ['Pick your opponents', 'Play the computer, or 2–3 friends on the same screen. Red always plays first.'],
     ['Choose your army', 'Each side picks up to 5 units. Repeats are allowed: three Cavalry is a plan.'],
-    ['Set your formation', 'Drag your units anywhere in your half, then press Ready.'],
+    ['Set your formation', 'Drag your units anywhere in your zone, then press Ready. Three armies fight on a round arena.'],
     ['Aim and launch', 'Press one of your units, pull back like a slingshot and let go. A longer pull hits harder.'],
     ['Knock them off', 'Collisions push units around. Any unit whose centre crosses the board edge is out.'],
-    ['Last army standing', 'Wipe out every enemy unit to win. If both armies fall on the same turn, it\'s a draw.'],
+    ['Last army standing', 'Wipe out every enemy unit to win. If the last armies fall on the same turn, it\'s a draw.'],
   ];
 
   const homeEl = document.getElementById('home');
   const gameEl = document.getElementById('game');
-  const nameInputs = { red: document.getElementById('name-red'), blue: document.getElementById('name-blue') };
+  const nameInputs = {
+    red: document.getElementById('name-red'),
+    blue: document.getElementById('name-blue'),
+    purple: document.getElementById('name-purple'),
+  };
 
   function loadNames() {
     try {
       const saved = JSON.parse(localStorage.getItem(NAMES_KEY));
-      if (saved && typeof saved.red === 'string' && typeof saved.blue === 'string') return saved;
+      if (saved && typeof saved.red === 'string' && typeof saved.blue === 'string') return { ...DEFAULT_NAMES, ...saved };
     } catch (e) { /* storage blocked or bad data */ }
     return { ...DEFAULT_NAMES };
   }
@@ -44,16 +51,16 @@
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* storage blocked */ }
   }
 
-  function readNames() {
+  function readNames(teams) {
     const names = {};
-    for (const team of ['red', 'blue']) {
+    for (const team of teams) {
       names[team] = nameInputs[team].value.trim() || DEFAULT_NAMES[team];
     }
-    if (settings.mode === 'cpu') names.blue = `${CPU_NAME}`;
-    // two identical names would make every message ambiguous
-    if (names.red.toLowerCase() === names.blue.toLowerCase()) {
-      names.red += ' (Red)';
-      names.blue += ' (Blue)';
+    if (settings.mode === 'cpu') names.blue = CPU_NAME;
+    // identical names would make every message ambiguous
+    for (const team of teams) {
+      const same = teams.filter(t => names[t].toLowerCase() === names[team].toLowerCase());
+      if (same.length > 1) same.forEach(t => { names[t] += ` (${TEAM_LABELS[t]})`; });
     }
     return names;
   }
@@ -74,10 +81,15 @@
       chip.setAttribute('aria-pressed', chip.dataset.level === settings.level);
     }
     const cpu = settings.mode === 'cpu';
+    const trio = settings.mode === 'trio';
     document.getElementById('level-row').hidden = !cpu;
+    document.getElementById('commander-purple').hidden = !trio;
+    document.getElementById('commanders').classList.toggle('trio', trio);
     document.getElementById('commanders-note').textContent = cpu
       ? 'You command Red. The computer commands Blue.'
-      : 'Two players, one screen. Take turns at the same device.';
+      : trio
+        ? 'Three players, one screen, on a round arena. Take turns: Red, then Blue, then Purple.'
+        : 'Two players, one screen. Take turns at the same device.';
     document.getElementById('label-blue').textContent = cpu ? `Blue army · computer (${AI.LEVELS[settings.level].name})` : 'Blue army';
     const blue = nameInputs.blue;
     if (cpu && !blue.disabled) {
@@ -213,13 +225,18 @@
   }
 
   document.getElementById('start').addEventListener('click', () => {
-    const names = readNames();
+    const teams = MODE_TEAMS[settings.mode];
+    const names = readNames(teams);
     const blue = settings.mode === 'cpu' ? blueName : nameInputs.blue.value;
-    saveNames({ red: nameInputs.red.value.trim() || DEFAULT_NAMES.red, blue: blue.trim() || DEFAULT_NAMES.blue });
+    saveNames({
+      red: nameInputs.red.value.trim() || DEFAULT_NAMES.red,
+      blue: blue.trim() || DEFAULT_NAMES.blue,
+      purple: nameInputs.purple.value.trim() || DEFAULT_NAMES.purple,
+    });
     showGame();
     Game.start({
       mode: settings.mode,
-      teams: ['red', 'blue'],
+      teams,
       names,
       cpu: settings.mode === 'cpu' ? { blue: true } : {},
       level: settings.level,
@@ -237,6 +254,7 @@
   const names = loadNames();
   nameInputs.red.value = names.red;
   nameInputs.blue.value = names.blue;
+  nameInputs.purple.value = names.purple;
   renderMode();
   buildUnitCards();
   buildThemeCards();

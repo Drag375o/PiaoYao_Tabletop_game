@@ -17,6 +17,7 @@
   --accent-ink: #17130a;
   --team-red: #ff5d7a;
   --team-blue: #4ea8ff;
+  --team-purple: #b583ff;
   --glyph-bg: #1f242b;
   --glyph-ink: #f1f3f6;
   --scrim: rgba(5, 6, 8, 0.6);
@@ -80,3 +81,7 @@
 [data-theme="midnight"] .unit-card,
 [data-theme="midnight"] .theme-card,
 [data-theme="midnight"] .rules li { border-width: 1px; }
+
+/* third army */
+[data-theme="midnight"] .turn.purple { box-shadow: 0 0 18px -4px var(--team-purple); }
+[data-theme="midnight"] .pick-glyph.purple { background-color: var(--team-purple); }

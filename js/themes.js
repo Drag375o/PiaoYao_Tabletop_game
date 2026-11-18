@@ -75,72 +75,131 @@ const Themes = (() => {
     ctx.closePath();
   }
 
-  function midline(ctx, B) {
+  // ---------- board shapes (rectangle for 2 armies, round for 3) ----------
+
+  const isRound = B => B.shape === 'circle';
+  const centre = B => (isRound(B) ? [B.cx, B.cy] : [B.x + B.w / 2, B.y + B.h / 2]);
+
+  // the playing surface
+  function boardPath(ctx, B) {
     ctx.beginPath();
-    ctx.moveTo(B.x + B.w / 2, B.y);
-    ctx.lineTo(B.x + B.w / 2, B.y + B.h);
-    ctx.stroke();
+    if (isRound(B)) ctx.arc(B.cx, B.cy, B.r, 0, Math.PI * 2);
+    else ctx.rect(B.x, B.y, B.w, B.h);
+  }
+
+  // the frame around the surface, `pad` wider
+  function framePath(ctx, B, pad, radius) {
+    if (isRound(B)) {
+      ctx.beginPath();
+      ctx.arc(B.cx, B.cy, B.r + pad, 0, Math.PI * 2);
+    } else {
+      roundRect(ctx, B.x - pad, B.y - pad, B.w + pad * 2, B.h + pad * 2, radius);
+    }
+  }
+
+  // lines between the armies' zones: a half-way line, or spokes between wedges
+  function dividerPath(ctx, B) {
+    ctx.beginPath();
+    if (isRound(B)) {
+      for (const ang of B.dividers()) {
+        ctx.moveTo(B.cx, B.cy);
+        ctx.lineTo(B.cx + Math.cos(ang) * B.r, B.cy + Math.sin(ang) * B.r);
+      }
+    } else {
+      ctx.moveTo(B.x + B.w / 2, B.y);
+      ctx.lineTo(B.x + B.w / 2, B.y + B.h);
+    }
+  }
+
+  function roughDividers(ctx, B, wobble, seed) {
+    if (isRound(B)) {
+      B.dividers().forEach((ang, i) =>
+        roughLine(ctx, B.cx, B.cy, B.cx + Math.cos(ang) * B.r, B.cy + Math.sin(ang) * B.r, wobble, seed + i * 40));
+    } else {
+      roughLine(ctx, B.x + B.w / 2, B.y, B.x + B.w / 2, B.y + B.h, wobble, seed);
+    }
+  }
+
+  function roughOutline(ctx, B, inset, wobble, seed) {
+    if (isRound(B)) {
+      roughCircle(ctx, B.cx, B.cy, B.r - inset, wobble, seed);
+      ctx.stroke();
+    } else {
+      roughRect(ctx, B.x + inset, B.y + inset, B.w - inset * 2, B.h - inset * 2, wobble, seed);
+    }
+  }
+
+  // faint wash of each army's colour over its starting zone
+  function tintZones(ctx, B, T, a) {
+    for (const team of B.teams) {
+      B.zonePath(ctx, team);
+      ctx.fillStyle = alpha(T.team[team], a);
+      ctx.fill();
+    }
   }
 
   // ---------- board surfaces ----------
 
   function drawClassic(ctx, B, T) {
     ctx.fillStyle = '#5b3d22';
-    roundRect(ctx, B.x - 14, B.y - 14, B.w + 28, B.h + 28, 14);
+    framePath(ctx, B, 14, 14);
     ctx.fill();
 
     const g = ctx.createLinearGradient(B.x, B.y, B.x, B.y + B.h);
     g.addColorStop(0, '#c9a46b');
     g.addColorStop(1, '#b38c55');
     ctx.fillStyle = g;
-    ctx.fillRect(B.x, B.y, B.w, B.h);
+    boardPath(ctx, B);
+    ctx.fill();
 
-    ctx.fillStyle = alpha(T.team.red, 0.08);
-    ctx.fillRect(B.x, B.y, B.w / 2, B.h);
-    ctx.fillStyle = alpha(T.team.blue, 0.08);
-    ctx.fillRect(B.x + B.w / 2, B.y, B.w / 2, B.h);
+    tintZones(ctx, B, T, 0.08);
 
     ctx.strokeStyle = 'rgba(80,50,20,0.45)';
     ctx.lineWidth = 2;
     ctx.setLineDash([10, 8]);
-    midline(ctx, B);
+    dividerPath(ctx, B);
+    ctx.stroke();
     ctx.setLineDash([]);
 
     ctx.strokeStyle = 'rgba(60,30,10,0.8)';
     ctx.lineWidth = 3;
-    ctx.strokeRect(B.x, B.y, B.w, B.h);
+    boardPath(ctx, B);
+    ctx.stroke();
   }
 
   // charcoal tactics board in a black tablet bezel, crisp white lines, gold centre mark
   function drawMidnight(ctx, B, T) {
     ctx.fillStyle = '#07080a';
-    roundRect(ctx, B.x - 16, B.y - 16, B.w + 32, B.h + 32, 26);
+    framePath(ctx, B, 16, 26);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.09)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    const cx = B.x + B.w / 2, cy = B.y + B.h / 2;
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, B.w * 0.62);
+    const [cx, cy] = centre(B);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(B.w, B.h) * 0.62);
     g.addColorStop(0, '#3a4047');
     g.addColorStop(0.45, '#262a2f');
     g.addColorStop(1, '#17191c');
     ctx.fillStyle = g;
-    ctx.fillRect(B.x, B.y, B.w, B.h);
+    boardPath(ctx, B);
+    ctx.fill();
 
     // faint vertical bands
+    ctx.save();
+    boardPath(ctx, B);
+    ctx.clip();
     const band = B.w / 10;
     ctx.fillStyle = 'rgba(255,255,255,0.022)';
     for (let i = 1; i < 10; i += 2) ctx.fillRect(B.x + i * band, B.y, band, B.h);
+    ctx.restore();
 
-    ctx.fillStyle = alpha(T.team.red, 0.05);
-    ctx.fillRect(B.x, B.y, B.w / 2, B.h);
-    ctx.fillStyle = alpha(T.team.blue, 0.05);
-    ctx.fillRect(B.x + B.w / 2, B.y, B.w / 2, B.h);
+    tintZones(ctx, B, T, 0.05);
 
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1.5;
-    midline(ctx, B);
+    dividerPath(ctx, B);
+    ctx.stroke();
     ctx.beginPath();
     ctx.arc(cx, cy, 70, 0, Math.PI * 2);
     ctx.stroke();
@@ -150,17 +209,18 @@ const Themes = (() => {
     ctx.fill();
 
     ctx.lineWidth = 2;
-    ctx.strokeRect(B.x, B.y, B.w, B.h);
+    boardPath(ctx, B);
+    ctx.stroke();
   }
 
   // black slate with chalk smudges in a walnut frame, chalk lines
   function drawChalkboard(ctx, B) {
     ctx.fillStyle = '#2a1a10';
-    roundRect(ctx, B.x - 16, B.y - 16, B.w + 32, B.h + 32, 8);
+    framePath(ctx, B, 16, 8);
     ctx.fill();
     // walnut grain
     ctx.save();
-    roundRect(ctx, B.x - 16, B.y - 16, B.w + 32, B.h + 32, 8);
+    framePath(ctx, B, 16, 8);
     ctx.clip();
     for (let i = 0; i < 60; i++) {
       const y = B.y - 16 + (i / 60) * (B.h + 32);
@@ -177,7 +237,11 @@ const Themes = (() => {
     g.addColorStop(0, '#2a2e2c');
     g.addColorStop(1, '#222624');
     ctx.fillStyle = g;
-    ctx.fillRect(B.x, B.y, B.w, B.h);
+    boardPath(ctx, B);
+    ctx.fill();
+    ctx.save();
+    boardPath(ctx, B);
+    ctx.clip();
     for (const [fx, fy, rr, a] of [[0.18, 0.25, 0.45, 0.055], [0.85, 0.8, 0.5, 0.045], [0.55, 0.45, 0.3, 0.03]]) {
       const sx = B.x + B.w * fx, sy = B.y + B.h * fy;
       const s = ctx.createRadialGradient(sx, sy, 0, sx, sy, B.w * rr);
@@ -186,19 +250,22 @@ const Themes = (() => {
       ctx.fillStyle = s;
       ctx.fillRect(B.x, B.y, B.w, B.h);
     }
+    ctx.restore();
     ctx.strokeStyle = 'rgba(0,0,0,0.55)';
     ctx.lineWidth = 3;
-    ctx.strokeRect(B.x, B.y, B.w, B.h);
+    boardPath(ctx, B);
+    ctx.stroke();
 
     // chalk lines: a firm pass and a dusty pass
+    const [cx, cy] = centre(B);
     for (const [w, a] of [[2.2, 0.8], [5, 0.12]]) {
       ctx.strokeStyle = `rgba(242,240,232,${a})`;
       ctx.lineWidth = w;
-      roughRect(ctx, B.x + 10, B.y + 10, B.w - 20, B.h - 20, 1.6, 11);
+      roughOutline(ctx, B, 10, 1.6, 11);
       ctx.setLineDash([14, 10]);
-      roughLine(ctx, B.x + B.w / 2, B.y + 10, B.x + B.w / 2, B.y + B.h - 10, 1.4, 300);
+      roughDividers(ctx, B, 1.4, 300);
       ctx.setLineDash([]);
-      roughCircle(ctx, B.x + B.w / 2, B.y + B.h / 2, 70, 1.6, 400);
+      roughCircle(ctx, cx, cy, 70, 1.6, 400);
       ctx.stroke();
     }
   }
@@ -206,9 +273,12 @@ const Themes = (() => {
   // mown grass with white pitch markings
   function drawPitch(ctx, B) {
     ctx.fillStyle = '#0f3d1b';
-    roundRect(ctx, B.x - 16, B.y - 16, B.w + 32, B.h + 32, 12);
+    framePath(ctx, B, 16, 12);
     ctx.fill();
 
+    ctx.save();
+    boardPath(ctx, B);
+    ctx.clip();
     const stripes = 12, sw = B.w / stripes;
     for (let i = 0; i < stripes; i++) {
       ctx.fillStyle = i % 2 ? '#378e3e' : '#3e9c46';
@@ -219,21 +289,28 @@ const Themes = (() => {
     sheen.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = sheen;
     ctx.fillRect(B.x, B.y, B.w, B.h);
+    ctx.restore();
 
-    const cx = B.x + B.w / 2, cy = B.y + B.h / 2;
+    const [cx, cy] = centre(B);
     ctx.strokeStyle = 'rgba(255,255,255,0.95)';
     ctx.lineWidth = 3;
-    ctx.strokeRect(B.x, B.y, B.w, B.h);
-    midline(ctx, B);
+    boardPath(ctx, B);
+    ctx.stroke();
+    dividerPath(ctx, B);
+    ctx.stroke();
     ctx.beginPath();
     ctx.arc(cx, cy, 78, 0, Math.PI * 2);
     ctx.stroke();
-    // penalty boxes at each end
-    const bh = B.h * 0.5, bd = B.w * 0.12;
-    ctx.strokeRect(B.x, cy - bh / 2, bd, bh);
-    ctx.strokeRect(B.x + B.w - bd, cy - bh / 2, bd, bh);
+    const spots = [cx];
+    if (!isRound(B)) {
+      // penalty boxes at each end
+      const bh = B.h * 0.5, bd = B.w * 0.12;
+      ctx.strokeRect(B.x, cy - bh / 2, bd, bh);
+      ctx.strokeRect(B.x + B.w - bd, cy - bh / 2, bd, bh);
+      spots.push(B.x + bd * 0.75, B.x + B.w - bd * 0.75);
+    }
     ctx.fillStyle = '#fff';
-    for (const x of [cx, B.x + bd * 0.75, B.x + B.w - bd * 0.75]) {
+    for (const x of spots) {
       ctx.beginPath();
       ctx.arc(x, cy, 4, 0, Math.PI * 2);
       ctx.fill();
@@ -275,13 +352,21 @@ const Themes = (() => {
       ctx.stroke();
     }
 
+    if (isRound(B)) {
+      // pencil shading so the round arena stands out from the page
+      ctx.fillStyle = 'rgba(46,48,54,0.035)';
+      boardPath(ctx, B);
+      ctx.fill();
+    }
+
+    const [cx, cy] = centre(B);
     ctx.strokeStyle = 'rgba(58,60,67,0.85)';
     ctx.lineWidth = 1.6;
-    roughRect(ctx, B.x, B.y, B.w, B.h, 1.2, 21);
+    roughOutline(ctx, B, 0, 1.2, 21);
     ctx.setLineDash([10, 9]);
-    roughLine(ctx, B.x + B.w / 2, B.y, B.x + B.w / 2, B.y + B.h, 1.1, 500);
+    roughDividers(ctx, B, 1.1, 500);
     ctx.setLineDash([]);
-    roughCircle(ctx, B.x + B.w / 2, B.y + B.h / 2, 66, 1.5, 600);
+    roughCircle(ctx, cx, cy, 66, 1.5, 600);
     ctx.stroke();
   }
 
@@ -291,7 +376,7 @@ const Themes = (() => {
     {
       id: 'classic', name: 'Battleboard',
       void: '#0f0c09', drawBoard: drawClassic,
-      team: { red: '#c8483b', blue: '#3b78c8' },
+      team: { red: '#c8483b', blue: '#3b78c8', purple: '#8a4fc8' },
       piece: 'disc', shadow: 'rgba(0,0,0,0.3)',
       aura: { fill: 'rgba(240,192,64,0.12)', stroke: 'rgba(200,150,30,0.5)' },
       aim: { band: 'rgba(40,25,10,0.6)', line: '#3a2410', strong: '#b0281c', ring: '#f0c040', hit: '#b0281c' },
@@ -300,7 +385,7 @@ const Themes = (() => {
     {
       id: 'midnight', name: 'Midnight',
       void: '#0b0d10', drawBoard: drawMidnight,
-      team: { red: '#ff5d7a', blue: '#4ea8ff' },
+      team: { red: '#ff5d7a', blue: '#4ea8ff', purple: '#b583ff' },
       piece: 'metal', shadow: 'rgba(0,0,0,0.45)',
       aura: { fill: 'rgba(220,183,94,0.1)', stroke: 'rgba(220,183,94,0.6)' },
       aim: { band: 'rgba(255,255,255,0.35)', line: 'rgba(255,255,255,0.85)', strong: '#dcb75e', ring: '#dcb75e', hit: '#dcb75e' },
@@ -309,7 +394,7 @@ const Themes = (() => {
     {
       id: 'chalkboard', name: 'Chalkboard',
       void: '#141311', drawBoard: drawChalkboard,
-      team: { red: '#ff9b90', blue: '#93caff' },
+      team: { red: '#ff9b90', blue: '#93caff', purple: '#d4a8ff' },
       piece: 'chalk', shadow: null,
       aura: { fill: 'rgba(243,211,107,0.07)', stroke: 'rgba(243,211,107,0.7)' },
       aim: { band: 'rgba(239,236,226,0.4)', line: 'rgba(239,236,226,0.9)', strong: '#f3d36b', ring: '#f3d36b', hit: '#f3d36b' },
@@ -318,7 +403,7 @@ const Themes = (() => {
     {
       id: 'pitch', name: 'Football pitch',
       void: '#1d5e27', drawBoard: drawPitch,
-      team: { red: '#ff4545', blue: '#3d8bff' },
+      team: { red: '#ff4545', blue: '#3d8bff', purple: '#9b5de5' },
       piece: 'kit', shadow: 'rgba(0,0,0,0.4)',
       aura: { fill: 'rgba(255,214,10,0.12)', stroke: 'rgba(255,214,10,0.8)' },
       aim: { band: 'rgba(255,255,255,0.5)', line: '#ffffff', strong: '#ffd60a', ring: '#ffd60a', hit: '#ffd60a' },
@@ -327,7 +412,7 @@ const Themes = (() => {
     {
       id: 'sketchbook', name: 'Sketchbook',
       void: '#b8976a', drawBoard: drawSketchbook,
-      team: { red: '#c0262d', blue: '#1f3fa8' },
+      team: { red: '#c0262d', blue: '#1f3fa8', purple: '#6a2c91' },
       piece: 'pen', shadow: null,
       aura: { fill: 'rgba(255,225,77,0.28)', stroke: 'rgba(192,135,16,0.6)' },
       aim: { band: 'rgba(46,48,54,0.45)', line: '#2e3036', strong: '#c0262d', ring: '#e0b800', hit: '#c0262d' },

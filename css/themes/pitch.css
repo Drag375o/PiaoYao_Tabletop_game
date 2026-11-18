@@ -18,6 +18,7 @@
   --accent-ink: #111111;
   --team-red: #ff4545;
   --team-blue: #3d8bff;
+  --team-purple: #9b5de5;
   --glyph-bg: #ffffff;
   --glyph-ink: #0f3d1b;
   --scrim: rgba(5, 30, 12, 0.5);
@@ -65,3 +66,6 @@
 [data-theme="pitch"] .unit-badge b { color: #fff; }
 [data-theme="pitch"] .unit-badge b:first-child { background: var(--team-red); border-color: #fff; }
 [data-theme="pitch"] .unit-badge b + b { background: var(--team-blue); border-color: #fff; }
+
+/* third army */
+[data-theme="pitch"] .pick-glyph.purple { background: var(--team-purple); }

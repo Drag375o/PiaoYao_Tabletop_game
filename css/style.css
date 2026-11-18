@@ -57,6 +57,7 @@ body {
 
 .turn.red { background: var(--team-red); }
 .turn.blue { background: var(--team-blue); }
+.turn.purple { background: var(--team-purple); }
 
 .theme-switch {
   display: inline-flex;
@@ -181,6 +182,7 @@ button[hidden] { display: none; }
 
 .pick-glyph.red { color: var(--team-red); border-color: var(--team-red); }
 .pick-glyph.blue { color: var(--team-blue); border-color: var(--team-blue); }
+.pick-glyph.purple { color: var(--team-purple); border-color: var(--team-purple); }
 
 .pick-name {
   flex: 1;

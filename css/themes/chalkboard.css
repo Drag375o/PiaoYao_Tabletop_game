@@ -17,6 +17,7 @@
   --accent-ink: #1f2220;
   --team-red: #ff9b90;
   --team-blue: #93caff;
+  --team-purple: #d4a8ff;
   --glyph-bg: transparent;
   --glyph-ink: #efece2;
   --scrim: rgba(12, 12, 11, 0.6);
@@ -74,3 +75,6 @@
 [data-theme="chalkboard"] .step { text-shadow: 0 0 2px rgba(255, 255, 255, 0.35); }
 [data-theme="chalkboard"] .theme-card.selected { border-color: var(--accent); box-shadow: 3px 4px 0 rgba(239, 236, 226, 0.5); }
 [data-theme="chalkboard"] .unit-badge b { background: transparent; border-radius: 52% 46% 50% 48% / 46% 52% 48% 50%; }
+
+/* third army */
+[data-theme="chalkboard"] .turn.purple { border-color: var(--team-purple); color: var(--team-purple); }

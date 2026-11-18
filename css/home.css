@@ -137,6 +137,9 @@
 .commander { display: grid; gap: 6px; }
 .commander.red { --team-color: var(--team-red); }
 .commander.blue { --team-color: var(--team-blue); }
+.commander.purple { --team-color: var(--team-purple); }
+.commander[hidden] { display: none; }
+.commanders.trio { grid-template-columns: repeat(3, 1fr); }
 
 .name-label {
   font-size: 0.85rem;
@@ -370,6 +373,6 @@ button.big {
 
 @media (max-width: 640px) {
   .home-board { padding: 20px 16px; }
-  .commanders { grid-template-columns: 1fr; gap: 18px; }
+  .commanders, .commanders.trio { grid-template-columns: 1fr; gap: 18px; }
   .rules { grid-template-columns: 1fr; }
 }

@@ -9,7 +9,7 @@ A static HTML/canvas site with no build step, so it can be served as-is. GitHub 
 
 **Run locally:** from the project folder run `python -m http.server 8000` and open http://localhost:8000.
 
-**Start page:** the game opens on a start page in the Auction XI style. It has sections for who's playing (vs Computer or 2 players on one screen), the commanders' names (remembered in this browser), the five units, board style cards with live previews, and how to play. **To the battlefield** starts a match. **← Menu** in the game returns to the start page, which then offers **Resume match**.
+**Start page:** the game opens on a start page in the Auction XI style. It has sections for who's playing (vs Computer, or 2 or 3 players on one screen), the commanders' names (remembered in this browser), the five units, board style cards with live previews, and how to play. **To the battlefield** starts a match. **← Menu** in the game returns to the start page, which then offers **Resume match**.
 
 **Board themes:** pick one from the **Board** menu in the top bar. Your choice is remembered in this browser. The styles come from the Auction XI project's themes:
 - **Battleboard** (default): warm wood and sand with cream game discs.
@@ -23,14 +23,15 @@ A static HTML/canvas site with no build step, so it can be served as-is. GitHub 
 **Game modes:**
 - **vs Computer:** you command Red, and the computer commands Blue. It picks its own army and formation. On its turn it tries every unit against every enemy at several angles and strengths, plays each shot out with the real physics, and launches one of the best. **Easy** picks loosely and aims roughly, **Normal** is a fair fight, and **Hard** almost never misses.
 - **2 players · same screen:** hot-seat. Red plays the left half, Blue the right.
+- **3 players · same screen:** hot-seat for Red, Blue and Purple on a **round arena** split into three equal 120° wedges, one per army. The rules are the same: set up in your own wedge, take turns (Red → Blue → Purple; armies that have been wiped out are skipped), and knock units off the round edge. The last army standing wins.
 
 **How a match runs:**
 - **Choose your army:** each player picks up to 5 units, and repeats are allowed (e.g. 3 Cavalry + 2 Shield Soldiers). **One of each** fills the default army.
-- **Set your formation:** the chosen units appear in a default formation in your half. Drag them anywhere inside your half (they can't overlap), then press **Ready**. Red sets up first, then Blue.
+- **Set your formation:** the chosen units appear in a default formation in your zone (your half, or your wedge in a 3-player game). Drag them anywhere inside your zone (they can't overlap), then press **Ready**. Armies set up in turn order.
 - Red goes first in battle. On your turn you launch one of your own units (they pulse in your colour). The turn passes once every piece has stopped.
 - Pieces slide with friction and collide with momentum-based knockback, including chain collisions.
 - A piece is eliminated when its centre crosses the board edge.
-- The match ends when a side has no units left. The other side wins, or it's a draw if both armies are wiped out on the same turn. **New match** restarts at any time.
+- The match ends when only one army has units left, and that army wins. If the last armies are all wiped out on the same turn, it's a draw. **New match** restarts at any time.
 
 **Units in this web version** (stats are this version's own tuning, not official numbers):
 
