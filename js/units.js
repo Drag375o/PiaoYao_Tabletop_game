@@ -39,5 +39,7 @@ const PROJECTILES = {
 const FLAG_AURA = 130;    // radius of the Flag Bearer's speed zone
 const FLAG_BOOST = 1.3;   // launch speed multiplier inside the zone
 
+const TEAM_SIZE = 5;      // most units a player may bring
+
 // Default formation order: back, middle pair, front pair.
 const DEFAULT_LINEUP = ['artillery', 'archer', 'flag', 'shield', 'cavalry'];

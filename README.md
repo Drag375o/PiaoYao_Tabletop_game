@@ -9,9 +9,11 @@ A static HTML/canvas site with no build step, so Netlify can serve the folder as
 
 **Controls:** press on a piece, drag backwards (like a slingshot) and release. A longer pull gives more force (the yellow ring shows power). A very short pull cancels the launch.
 
-**Current status (step 3 – turns and win condition):**
-- Two players share one screen (hot-seat). Each side starts with one of each unit in a default formation (red left, blue right).
-- Red goes first. On your turn you launch one of your own units (they pulse in your colour). The turn passes once every piece has stopped.
+**Current status (step 4 – army selection and formation):**
+- Two players share one screen (hot-seat). Red plays the left half, Blue the right.
+- **Choose your army:** each player picks up to 5 units, and repeats are allowed (e.g. 3 Cavalry + 2 Shield Soldiers). **One of each** fills the default army.
+- **Set your formation:** the chosen units appear in a default formation in your half. Drag them anywhere inside your half (they can't overlap), then press **Ready**. Red sets up first, then Blue.
+- Red goes first in battle. On your turn you launch one of your own units (they pulse in your colour). The turn passes once every piece has stopped.
 - Pieces slide with friction and collide with momentum-based knockback, including chain collisions.
 - A piece is eliminated when its centre crosses the board edge.
 - The match ends when a side has no units left. The other side wins, or it's a draw if both armies are wiped out on the same turn. **New match** restarts at any time.

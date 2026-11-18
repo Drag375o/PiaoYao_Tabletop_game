@@ -24,9 +24,15 @@
   const statusEl = document.getElementById('status');
   const turnEl = document.getElementById('turn');
   const overlayEl = document.getElementById('overlay');
+  const setupEl = document.getElementById('setup');
+  const readyBtn = document.getElementById('ready');
 
   let bodies = [];
   let drag = null;     // { body, px, py } while aiming
+  let moving = null;   // { body, ox, oy, dx, dy } while placing a unit during setup
+  let phase = 'select';     // 'select' | 'place' | 'battle'
+  let setupTeam = 'red';    // team choosing or placing its army
+  let picks = {};           // unit type -> count while choosing an army
   let turn = 'red';    // team whose turn it is
   let turnNo = 1;
   let winner = null;   // 'red' | 'blue' | 'draw' once the match is over
@@ -41,24 +47,138 @@
     });
   }
 
-  function setupBoard() {
+  // ---------- match setup: choose an army, then place it ----------
+
+  function newMatch() {
     bodies = [];
-    const half = BOARD.w / 2;
-    for (const team of ['red', 'blue']) {
-      FORMATION.forEach((slot, i) => {
-        const dx = slot.fx * half;
-        const x = team === 'red' ? BOARD.x + dx : BOARD.x + BOARD.w - dx;
-        const y = BOARD.y + slot.fy * BOARD.h;
-        bodies.push(makeUnit(DEFAULT_LINEUP[i], team, x, y));
-      });
-    }
     drag = null;
+    moving = null;
     turn = 'red';
     turnNo = 1;
     winner = null;
     overlayEl.hidden = true;
+    beginSelect('red');
+  }
+
+  function beginSelect(team) {
+    phase = 'select';
+    setupTeam = team;
+    picks = {};
+    turnEl.className = 'turn ' + team;
+    turnEl.textContent = `${TEAM_NAMES[team]} · Army`;
+    document.getElementById('setup-title').textContent = `${TEAM_NAMES[team]}: choose your army`;
+    setStatus(`${TEAM_NAMES[team]}: choose up to ${TEAM_SIZE} units.`);
+    readyBtn.hidden = true;
+    renderPicker();
+    setupEl.hidden = false;
+  }
+
+  function pickTotal() {
+    return Object.values(picks).reduce((sum, n) => sum + n, 0);
+  }
+
+  function renderPicker() {
+    const list = document.getElementById('unit-picker');
+    list.innerHTML = '';
+    const total = pickTotal();
+    for (const [type, def] of Object.entries(UNITS)) {
+      const count = picks[type] || 0;
+      const row = document.createElement('li');
+      row.className = 'pick-row';
+      row.innerHTML = `
+        <b class="pick-glyph ${setupTeam}"></b>
+        <span class="pick-name"><strong></strong><small></small></span>
+        <button type="button" data-type="${type}" data-delta="-1" aria-label="Remove ${def.name}">−</button>
+        <span class="pick-count">${count}</span>
+        <button type="button" data-type="${type}" data-delta="1" aria-label="Add ${def.name}">+</button>`;
+      row.querySelector('.pick-glyph').textContent = def.glyph;
+      row.querySelector('strong').textContent = def.name;
+      row.querySelector('small').textContent = def.role;
+      row.title = def.hint;
+      row.querySelector('[data-delta="-1"]').disabled = count === 0;
+      row.querySelector('[data-delta="1"]').disabled = total >= TEAM_SIZE;
+      list.append(row);
+    }
+    document.getElementById('pick-total').textContent = `${total} / ${TEAM_SIZE} units`;
+    document.getElementById('pick-done').disabled = total === 0;
+  }
+
+  document.getElementById('unit-picker').addEventListener('click', evt => {
+    const btn = evt.target.closest('button[data-type]');
+    if (!btn) return;
+    const type = btn.dataset.type;
+    const next = (picks[type] || 0) + Number(btn.dataset.delta);
+    if (next < 0 || pickTotal() + Number(btn.dataset.delta) > TEAM_SIZE) return;
+    picks[type] = next;
+    renderPicker();
+  });
+
+  document.getElementById('pick-default').addEventListener('click', () => {
+    picks = {};
+    for (const type of DEFAULT_LINEUP) picks[type] = 1;
+    renderPicker();
+  });
+
+  document.getElementById('pick-done').addEventListener('click', () => {
+    if (pickTotal() > 0) beginPlace();
+  });
+
+  function slotPosition(team, slot) {
+    const dx = slot.fx * BOARD.w / 2;
+    return {
+      x: team === 'red' ? BOARD.x + dx : BOARD.x + BOARD.w - dx,
+      y: BOARD.y + slot.fy * BOARD.h,
+    };
+  }
+
+  // Put the chosen units into the default formation (back to front), ready to be rearranged.
+  function beginPlace() {
+    const army = [];
+    for (const type of DEFAULT_LINEUP) {
+      for (let i = 0; i < (picks[type] || 0); i++) army.push(type);
+    }
+    army.forEach((type, i) => {
+      const { x, y } = slotPosition(setupTeam, FORMATION[i]);
+      bodies.push(makeUnit(type, setupTeam, x, y));
+    });
+    phase = 'place';
+    setupEl.hidden = true;
+    readyBtn.hidden = false;
+    turnEl.textContent = `${TEAM_NAMES[setupTeam]} · Formation`;
+    setStatus(`${TEAM_NAMES[setupTeam]}: drag your units anywhere in your half, then press Ready.`);
+  }
+
+  readyBtn.addEventListener('click', () => {
+    if (phase !== 'place') return;
+    if (setupTeam === 'red') beginSelect('blue');
+    else startBattle();
+  });
+
+  function startBattle() {
+    phase = 'battle';
+    readyBtn.hidden = true;
+    turn = 'red';
+    turnNo = 1;
     updateTurnBadge();
-    setStatus(AIM_HELP);
+    setStatus(`Red goes first. ${AIM_HELP}`);
+  }
+
+  function setupZone(team) {
+    const half = BOARD.w / 2;
+    return { x: team === 'red' ? BOARD.x : BOARD.x + half, y: BOARD.y, w: half, h: BOARD.h };
+  }
+
+  function clampToZone(body, x, y) {
+    const z = setupZone(body.team);
+    const pad = body.r + 6;
+    return {
+      x: Math.min(Math.max(x, z.x + pad), z.x + z.w - pad),
+      y: Math.min(Math.max(y, z.y + pad), z.y + z.h - pad),
+    };
+  }
+
+  function overlapsOther(body) {
+    return units().some(o => o !== body && Math.hypot(o.x - body.x, o.y - body.y) < o.r + body.r + 2);
   }
 
   function setStatus(text) { statusEl.textContent = text; }
@@ -210,8 +330,15 @@
   }
 
   canvas.addEventListener('pointerdown', evt => {
-    if (winner || !Physics.isSettled(bodies)) return;
     const p = toWorld(evt);
+    if (phase === 'place') {
+      const body = pieceAt(p);
+      if (!body || body.team !== setupTeam) return;
+      moving = { body, ox: body.x, oy: body.y, dx: body.x - p.x, dy: body.y - p.y };
+      canvas.setPointerCapture(evt.pointerId);
+      return;
+    }
+    if (phase !== 'battle' || winner || !Physics.isSettled(bodies)) return;
     const body = pieceAt(p);
     if (!body) return;
     if (body.team !== turn) {
@@ -225,12 +352,28 @@
   });
 
   canvas.addEventListener('pointermove', evt => {
-    if (!drag) return;
     const p = toWorld(evt);
+    if (moving) {
+      const pos = clampToZone(moving.body, p.x + moving.dx, p.y + moving.dy);
+      moving.body.x = pos.x;
+      moving.body.y = pos.y;
+      return;
+    }
+    if (!drag) return;
     drag.px = p.x; drag.py = p.y;
   });
 
   canvas.addEventListener('pointerup', () => {
+    if (moving) {
+      // units may not be stacked on top of each other
+      if (overlapsOther(moving.body)) {
+        moving.body.x = moving.ox;
+        moving.body.y = moving.oy;
+        setStatus('Units can’t overlap. Drop it on a free spot.');
+      }
+      moving = null;
+      return;
+    }
     if (!drag) return;
     const { nx, ny, power } = launchVector(drag);
     if (power >= MIN_POWER) {
@@ -242,10 +385,14 @@
     drag = null;
   });
 
-  canvas.addEventListener('pointercancel', () => { drag = null; });
+  canvas.addEventListener('pointercancel', () => {
+    if (moving) { moving.body.x = moving.ox; moving.body.y = moving.oy; }
+    drag = null;
+    moving = null;
+  });
 
-  document.getElementById('reset').addEventListener('click', setupBoard);
-  document.getElementById('play-again').addEventListener('click', setupBoard);
+  document.getElementById('reset').addEventListener('click', newMatch);
+  document.getElementById('play-again').addEventListener('click', newMatch);
   window.addEventListener('resize', resize);
 
   function buildLegend() {
@@ -474,14 +621,27 @@
     ctx.fill();
   }
 
-  // soft pulsing ring around the units the current player may launch
-  function drawTurnHighlights() {
+  // during placement: dim the opponent's half and outline the player's own zone
+  function drawSetupZone() {
+    const z = setupZone(setupTeam);
+    const other = setupZone(setupTeam === 'red' ? 'blue' : 'red');
+    ctx.fillStyle = 'rgba(20,14,8,0.35)';
+    ctx.fillRect(other.x, other.y, other.w, other.h);
+    ctx.strokeStyle = TEAM_COLORS[setupTeam];
+    ctx.lineWidth = 3;
+    ctx.setLineDash([12, 8]);
+    ctx.strokeRect(z.x + 4, z.y + 4, z.w - 8, z.h - 8);
+    ctx.setLineDash([]);
+  }
+
+  // soft pulsing ring around the units the current player may launch or move
+  function drawTurnHighlights(team) {
     const pulse = 0.35 + 0.25 * Math.sin(performance.now() / 300);
-    ctx.strokeStyle = TEAM_COLORS[turn];
+    ctx.strokeStyle = TEAM_COLORS[team];
     ctx.globalAlpha = pulse;
     ctx.lineWidth = 3;
     for (const b of units()) {
-      if (b.team !== turn || b.falling || (drag && drag.body === b)) continue;
+      if (b.team !== team || b.falling || (drag && drag.body === b)) continue;
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r + 6, 0, Math.PI * 2);
       ctx.stroke();
@@ -495,8 +655,10 @@
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(view.scale, 0, 0, view.scale, view.ox, view.oy);
     drawBoard();
+    if (phase === 'place') drawSetupZone();
     drawAuras();
-    if (idle) drawTurnHighlights();
+    if (phase === 'place') drawTurnHighlights(setupTeam);
+    else if (idle) drawTurnHighlights(turn);
     for (const b of bodies) if (!b.gone && b.kind === 'unit') drawPiece(b);
     for (const b of bodies) if (!b.gone && b.kind === 'projectile') drawProjectile(b);
     drawAim();
@@ -509,7 +671,8 @@
   function frame(now) {
     const dt = (now - lastTime) / 1000;
     lastTime = now;
-    Physics.update(bodies, BOARD, dt, onHit);
+    // physics only runs in battle, so units dragged during setup never shove each other
+    if (phase === 'battle') Physics.update(bodies, BOARD, dt, onHit);
     // spent projectiles disappear once they stop
     for (const b of bodies) {
       if (b.kind === 'projectile' && !b.falling && b.vx === 0 && b.vy === 0) b.gone = true;
@@ -517,7 +680,7 @@
     const settled = Physics.isSettled(bodies);
     if (wasMoving && settled) endTurn();
     wasMoving = !settled;
-    render(settled && !winner);
+    render(phase === 'battle' && settled && !winner);
     requestAnimationFrame(frame);
   }
 
@@ -536,10 +699,11 @@
     settled: () => Physics.isSettled(bodies),
     get turn() { return turn; },
     get winner() { return winner; },
+    get phase() { return phase; },
   };
 
   resize();
   buildLegend();
-  setupBoard();
+  newMatch();
   requestAnimationFrame(frame);
 })();

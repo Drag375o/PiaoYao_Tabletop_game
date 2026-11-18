@@ -12,10 +12,23 @@
     <h1>Piaoyao Battleboard</h1>
     <div id="turn" class="turn"></div>
     <div id="status" class="status"></div>
+    <button id="ready" class="primary" type="button" hidden>Ready</button>
     <button id="reset" type="button">New match</button>
   </header>
   <main id="stage">
     <canvas id="board" aria-label="Battleboard"></canvas>
+    <div id="setup" class="overlay" hidden>
+      <div class="overlay-card setup-card">
+        <h2 id="setup-title"></h2>
+        <p>Pick up to 5 units. Repeats are allowed.</p>
+        <ul id="unit-picker" class="picker"></ul>
+        <div id="pick-total" class="pick-total"></div>
+        <div class="actions">
+          <button id="pick-default" type="button">One of each</button>
+          <button id="pick-done" class="primary" type="button">Place units</button>
+        </div>
+      </div>
+    </div>
     <div id="overlay" class="overlay" hidden>
       <div class="overlay-card">
         <h2 id="overlay-title"></h2>
