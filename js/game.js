@@ -3,9 +3,11 @@
   const WORLD = { w: 1000, h: 680 };
   const BOARD = { x: 90, y: 60, w: 820, h: 560 };
   const MAX_DRAG = 150;        // world px of pull-back for full power
-  const MAX_SPEED = 1150;      // launch speed at full power (px/s)
+  const MAX_SPEED = 1150;      // default launch speed at full power (px/s)
   const MIN_POWER = 0.06;      // releases weaker than this are cancelled
   const TEAM_COLORS = { red: '#c8483b', blue: '#3b78c8' };
+  const GLYPH_FONT = '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Hiragino Sans GB", sans-serif';
+  const DEFAULT_STATUS = 'Drag a piece backwards and release to launch it.';
 
   // Default formation, as fractions of each team's half (x from its own back edge).
   const FORMATION = [
@@ -25,22 +27,98 @@
   let view = { scale: 1, ox: 0, oy: 0 };
   let lastTime = performance.now();
 
+  function makeUnit(type, team, x, y) {
+    const def = UNITS[type];
+    return Physics.makeBody({
+      kind: 'unit', type, team, x, y,
+      r: def.r, mass: def.mass, friction: def.friction, restitution: def.restitution,
+    });
+  }
+
   function setupBoard() {
     bodies = [];
     const half = BOARD.w / 2;
     for (const team of ['red', 'blue']) {
-      for (const slot of FORMATION) {
+      FORMATION.forEach((slot, i) => {
         const dx = slot.fx * half;
         const x = team === 'red' ? BOARD.x + dx : BOARD.x + BOARD.w - dx;
         const y = BOARD.y + slot.fy * BOARD.h;
-        bodies.push(Physics.makeBody({ x, y, r: 20, mass: 1, team }));
-      }
+        bodies.push(makeUnit(DEFAULT_LINEUP[i], team, x, y));
+      });
     }
     drag = null;
-    setStatus('Drag a piece backwards and release to launch it.');
+    setStatus(DEFAULT_STATUS);
   }
 
   function setStatus(text) { statusEl.textContent = text; }
+
+  function units() { return bodies.filter(b => b.kind === 'unit' && !b.gone); }
+
+  // ---------- abilities ----------
+
+  function flagBoost(body) {
+    const boosted = bodies.some(f =>
+      f !== body && f.type === 'flag' && f.team === body.team && !f.gone && !f.falling &&
+      Math.hypot(f.x - body.x, f.y - body.y) <= FLAG_AURA);
+    return boosted ? FLAG_BOOST : 1;
+  }
+
+  function launch(body, nx, ny, power) {
+    const def = UNITS[body.type];
+    const boost = flagBoost(body);
+    if (def.fires) {
+      const p = PROJECTILES[def.fires];
+      const speed = p.speed * power * boost;
+      const off = body.r + p.r + 1;
+      bodies.push(Physics.makeBody({
+        kind: 'projectile', projectile: def.fires, team: body.team,
+        x: body.x + nx * off, y: body.y + ny * off,
+        vx: nx * speed, vy: ny * speed,
+        r: p.r, mass: p.mass, friction: p.friction, restitution: p.restitution,
+      }));
+      if (def.recoil) {
+        body.vx = -nx * def.recoil * power;
+        body.vy = -ny * def.recoil * power;
+      }
+    } else {
+      const speed = (def.maxSpeed || MAX_SPEED) * power * boost;
+      body.vx = nx * speed;
+      body.vy = ny * speed;
+    }
+  }
+
+  function onHit(a, b) {
+    // arrows break on the first unit they strike
+    if (a.projectile && PROJECTILES[a.projectile].oneHit && b.kind === 'unit') a.gone = true;
+    if (b.projectile && PROJECTILES[b.projectile].oneHit && a.kind === 'unit') b.gone = true;
+  }
+
+  // First unit an arrow fired from `body` along (nx, ny) would strike.
+  function predictArrowHit(body, nx, ny) {
+    const ar = PROJECTILES.arrow.r;
+    const ox = body.x + nx * (body.r + ar + 1);
+    const oy = body.y + ny * (body.r + ar + 1);
+    let best = null;
+    for (const u of units()) {
+      if (u === body || u.falling) continue;
+      const R = u.r + ar;
+      const fx = ox - u.x, fy = oy - u.y;
+      const bq = fx * nx + fy * ny;
+      const c = fx * fx + fy * fy - R * R;
+      const disc = bq * bq - c;
+      if (disc < 0) continue;
+      const t = -bq - Math.sqrt(disc);
+      if (t < 0) continue;
+      if (!best || t < best.t) best = { t, unit: u };
+    }
+    // distance until the arrow leaves the board
+    const tx = nx > 0 ? (BOARD.x + BOARD.w - ox) / nx : nx < 0 ? (BOARD.x - ox) / nx : Infinity;
+    const ty = ny > 0 ? (BOARD.y + BOARD.h - oy) / ny : ny < 0 ? (BOARD.y - oy) / ny : Infinity;
+    const exitT = Math.min(tx, ty);
+    if (best && best.t > exitT) best = null;
+    const t = best ? best.t : exitT;
+    return { ox, oy, cx: ox + nx * t, cy: oy + ny * t, unit: best && best.unit };
+  }
 
   // ---------- view / input ----------
 
@@ -68,8 +146,8 @@
 
   function pieceAt(p) {
     let best = null, bestD = Infinity;
-    for (const b of bodies) {
-      if (b.gone || b.falling) continue;
+    for (const b of units()) {
+      if (b.falling) continue;
       const d = Math.hypot(b.x - p.x, b.y - p.y);
       if (d <= b.r + 10 && d < bestD) { best = b; bestD = d; }
     }
@@ -90,6 +168,8 @@
     const body = pieceAt(p);
     if (!body) return;
     drag = { body, px: p.x, py: p.y };
+    const boosted = flagBoost(body) > 1 ? ' (Flag Bearer boost active)' : '';
+    setStatus(UNITS[body.type].hint + boosted);
     canvas.setPointerCapture(evt.pointerId);
   });
 
@@ -103,9 +183,10 @@
     if (!drag) return;
     const { nx, ny, power } = launchVector(drag);
     if (power >= MIN_POWER) {
-      drag.body.vx = nx * power * MAX_SPEED;
-      drag.body.vy = ny * power * MAX_SPEED;
+      launch(drag.body, nx, ny, power);
       setStatus('Pieces in motion…');
+    } else {
+      setStatus(DEFAULT_STATUS);
     }
     drag = null;
   });
@@ -115,13 +196,23 @@
   document.getElementById('reset').addEventListener('click', setupBoard);
   window.addEventListener('resize', resize);
 
+  function buildLegend() {
+    const el = document.getElementById('legend');
+    el.innerHTML = '';
+    for (const def of Object.values(UNITS)) {
+      const item = document.createElement('span');
+      item.className = 'legend-item';
+      item.title = def.hint;
+      const glyph = document.createElement('b');
+      glyph.textContent = def.glyph;
+      item.append(glyph, def.name);
+      el.append(item);
+    }
+  }
+
   // ---------- rendering ----------
 
   function drawBoard() {
-    // table surface around the board
-    ctx.fillStyle = '#0f0c09';
-    ctx.fillRect(0, 0, WORLD.w, WORLD.h);
-
     // board rim
     ctx.fillStyle = '#5b3d22';
     roundRect(BOARD.x - 14, BOARD.y - 14, BOARD.w + 28, BOARD.h + 28, 14);
@@ -164,8 +255,27 @@
     ctx.closePath();
   }
 
+  function drawAuras() {
+    for (const f of units()) {
+      if (f.type !== 'flag' || f.falling) continue;
+      ctx.fillStyle = 'rgba(240,192,64,0.12)';
+      ctx.strokeStyle = 'rgba(200,150,30,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 5]);
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, FLAG_AURA, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  function fallFactor(b) {
+    return b.falling ? Math.min(b.fallT / Physics.FALL_TIME, 1) : 0;
+  }
+
   function drawPiece(b) {
-    const t = b.falling ? Math.min(b.fallT / Physics.FALL_TIME, 1) : 0;
+    const t = fallFactor(b);
     const r = b.r * (1 - 0.6 * t);
     ctx.save();
     ctx.globalAlpha = 1 - t;
@@ -184,15 +294,56 @@
     ctx.beginPath();
     ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
     ctx.fill();
-    ctx.lineWidth = Math.max(2, r * 0.22);
-    ctx.strokeStyle = TEAM_COLORS[b.team] || '#555';
+    ctx.lineWidth = Math.max(2, r * 0.18);
+    ctx.strokeStyle = TEAM_COLORS[b.team];
     ctx.stroke();
+
+    // unit glyph
+    ctx.fillStyle = TEAM_COLORS[b.team];
+    ctx.font = `bold ${Math.round(r * 1.05)}px ${GLYPH_FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(UNITS[b.type].glyph, b.x, b.y + r * 0.04);
+    ctx.restore();
+  }
+
+  function drawProjectile(b) {
+    const t = fallFactor(b);
+    ctx.save();
+    ctx.globalAlpha = 1 - t;
+    if (b.projectile === 'arrow') {
+      const sp = Math.hypot(b.vx, b.vy) || 1;
+      const ux = b.vx / sp, uy = b.vy / sp;
+      ctx.strokeStyle = '#3a2410';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(b.x - ux * 22, b.y - uy * 22);
+      ctx.lineTo(b.x + ux * 4, b.y + uy * 4);
+      ctx.stroke();
+      ctx.fillStyle = TEAM_COLORS[b.team];
+      ctx.beginPath();
+      ctx.moveTo(b.x + ux * 9, b.y + uy * 9);
+      ctx.lineTo(b.x - uy * 5, b.y + ux * 5);
+      ctx.lineTo(b.x + uy * 5, b.y - ux * 5);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      const r = b.r * (1 - 0.6 * t);
+      const g = ctx.createRadialGradient(b.x - r * 0.4, b.y - r * 0.4, r * 0.1, b.x, b.y, r);
+      g.addColorStop(0, '#777');
+      g.addColorStop(1, '#1d1d1d');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
   function drawAim() {
     if (!drag) return;
     const b = drag.body;
+    const def = UNITS[b.type];
     const { nx, ny, power } = launchVector(drag);
 
     // pull band back to the pointer
@@ -204,18 +355,55 @@
     ctx.lineTo(b.x - nx * pull, b.y - ny * pull);
     ctx.stroke();
 
+    const boosted = flagBoost(b) > 1;
+    if (boosted) {
+      ctx.strokeStyle = 'rgba(240,192,64,0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r + 13, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     if (power < MIN_POWER) return;
 
-    // launch direction, length grows with power
-    const len = 60 + power * 220;
-    ctx.strokeStyle = power > 0.85 ? '#b0281c' : '#3a2410';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([8, 7]);
-    ctx.beginPath();
-    ctx.moveTo(b.x + nx * b.r, b.y + ny * b.r);
-    ctx.lineTo(b.x + nx * (b.r + len), b.y + ny * (b.r + len));
-    ctx.stroke();
-    ctx.setLineDash([]);
+    if (def.fires === 'arrow') {
+      // archer trajectory indicator: exact line to the first unit it will strike
+      const hit = predictArrowHit(b, nx, ny);
+      ctx.strokeStyle = 'rgba(176,40,28,0.85)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(hit.ox, hit.oy);
+      ctx.lineTo(hit.cx, hit.cy);
+      ctx.stroke();
+      if (hit.unit) {
+        const kx = hit.unit.x - hit.cx, ky = hit.unit.y - hit.cy;
+        const kl = Math.hypot(kx, ky) || 1;
+        ctx.fillStyle = '#b0281c';
+        ctx.beginPath();
+        ctx.arc(hit.cx, hit.cy, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // knock-back direction on the target
+        const sx = hit.unit.x, sy = hit.unit.y;
+        const ex = sx + kx / kl * 50, ey = sy + ky / kl * 50;
+        ctx.strokeStyle = '#b0281c';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        drawArrowHead(ex, ey, kx / kl, ky / kl);
+      }
+    } else {
+      const len = 60 + power * 220;
+      ctx.strokeStyle = power > 0.85 ? '#b0281c' : '#3a2410';
+      ctx.lineWidth = def.fires === 'cannonball' ? 5 : 3;
+      ctx.setLineDash([8, 7]);
+      ctx.beginPath();
+      ctx.moveTo(b.x + nx * b.r, b.y + ny * b.r);
+      ctx.lineTo(b.x + nx * (b.r + len), b.y + ny * (b.r + len));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
 
     // power ring
     ctx.strokeStyle = '#f0c040';
@@ -225,13 +413,24 @@
     ctx.stroke();
   }
 
+  function drawArrowHead(x, y, ux, uy) {
+    ctx.beginPath();
+    ctx.moveTo(x + ux * 8, y + uy * 8);
+    ctx.lineTo(x - uy * 6, y + ux * 6);
+    ctx.lineTo(x + uy * 6, y - ux * 6);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   function render() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#0f0c09';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(view.scale, 0, 0, view.scale, view.ox, view.oy);
     drawBoard();
-    for (const b of bodies) if (!b.gone) drawPiece(b);
+    drawAuras();
+    for (const b of bodies) if (!b.gone && b.kind === 'unit') drawPiece(b);
+    for (const b of bodies) if (!b.gone && b.kind === 'projectile') drawProjectile(b);
     drawAim();
   }
 
@@ -242,13 +441,17 @@
   function frame(now) {
     const dt = (now - lastTime) / 1000;
     lastTime = now;
-    Physics.update(bodies, BOARD, dt);
+    Physics.update(bodies, BOARD, dt, onHit);
+    // spent projectiles disappear once they stop
+    for (const b of bodies) {
+      if (b.kind === 'projectile' && !b.falling && b.vx === 0 && b.vy === 0) b.gone = true;
+    }
     const settled = Physics.isSettled(bodies);
     if (wasMoving && settled) {
       bodies = bodies.filter(b => !b.gone);
-      const red = bodies.filter(b => b.team === 'red').length;
-      const blue = bodies.filter(b => b.team === 'blue').length;
-      setStatus(`Red ${red} · Blue ${blue} pieces on the board. Drag a piece to launch it.`);
+      const red = units().filter(b => b.team === 'red').length;
+      const blue = units().filter(b => b.team === 'blue').length;
+      setStatus(`Red ${red} · Blue ${blue} units on the board. Drag a unit to launch it.`);
     }
     wasMoving = !settled;
     render();
@@ -271,6 +474,7 @@
   };
 
   resize();
+  buildLegend();
   setupBoard();
   requestAnimationFrame(frame);
 })();

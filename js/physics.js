@@ -55,6 +55,7 @@ const Physics = (() => {
       const a = bodies[i];
       if (a.gone || a.falling) continue;
       for (let j = i + 1; j < bodies.length; j++) {
+        if (a.gone) break;   // onHit may remove a one-hit projectile
         const b = bodies[j];
         if (b.gone || b.falling) continue;
         const dx = b.x - a.x, dy = b.y - a.y;

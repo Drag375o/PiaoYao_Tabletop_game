@@ -9,11 +9,21 @@ A static HTML/canvas site with no build step, so Netlify can serve the folder as
 
 **Controls:** press on a piece, drag backwards (like a slingshot) and release. A longer pull gives more force (the yellow ring shows power). A very short pull cancels the launch.
 
-**Current status (step 1 – board and physics):**
-- Each side starts with 5 pieces in a default formation (red left, blue right).
+**Current status (step 2 – units and abilities):**
+- Each side starts with one of each unit in a default formation (red left, blue right).
 - Pieces slide with friction and collide with momentum-based knockback, including chain collisions.
 - A piece is eliminated when its centre crosses the board edge.
-- Any piece can be launched once the board is at rest. Unit types, turns and the win condition are not in yet.
+- Any piece can be launched once the board is at rest. Turns and the win condition are not in yet.
+
+**Units in this web version** (stats are this version's own tuning, not official numbers):
+
+| Glyph | Unit | How it plays here |
+|---|---|---|
+| 弓 | Archer | Stays in place and fires an arrow. The arrow disappears after its first hit. Its trajectory indicator shows the exact unit the arrow will strike and the direction that unit will be knocked. |
+| 盾 | Shield Soldier | Heaviest unit with high friction and soft impacts. Slow to launch but very hard to push away. |
+| 旗 | Flag Bearer | Has a gold speed zone. Allies whose centre is inside it launch (or fire) 30% faster. |
+| 炮 | Artillery | Fires a heavy cannonball that keeps rolling through clustered units. The artillery recoils slightly backwards. |
+| 骑 | Cavalry | Fastest launch and longest slide, with a heavy impact. Built for shoving enemies off the edge. |
 
 The game instruction are as follows :
 # Piaoyao Battleboard

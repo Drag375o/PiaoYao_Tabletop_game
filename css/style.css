@@ -66,6 +66,32 @@ button:hover { background: #4a3d2e; }
   min-height: 0;
 }
 
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-top: 1px solid #3a3025;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.legend-item b {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  line-height: 22px;
+  text-align: center;
+  border-radius: 50%;
+  background: #f1e6d2;
+  color: #3a2410;
+  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  font-size: 13px;
+}
+
 #board {
   position: absolute;
   inset: 0;
