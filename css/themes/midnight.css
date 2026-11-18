@@ -13,6 +13,7 @@
   --line: rgba(255, 255, 255, 0.1);
   --line-strong: rgba(255, 255, 255, 0.16);
   --accent: #dcb75e;
+  --highlight: rgba(220, 183, 94, 0.13);
   --accent-ink: #17130a;
   --team-red: #ff5d7a;
   --team-blue: #4ea8ff;
@@ -62,3 +63,20 @@
 }
 [data-theme="midnight"] .pick-glyph.red { background-color: var(--team-red); }
 [data-theme="midnight"] .pick-glyph.blue { background-color: var(--team-blue); }
+
+/* start page: charcoal panel */
+[data-theme="midnight"] .home-board {
+  background: linear-gradient(180deg, #191d23, #121519);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+[data-theme="midnight"] .logo { transform: none; letter-spacing: 0.06em; text-transform: uppercase; }
+[data-theme="midnight"] .logo span { color: var(--accent); }
+[data-theme="midnight"] .logo::after { border-bottom: 2px solid var(--accent); border-radius: 0; left: 20%; right: 20%; bottom: -8px; }
+[data-theme="midnight"] .step,
+[data-theme="midnight"] .rules b { text-transform: uppercase; letter-spacing: 0.05em; }
+[data-theme="midnight"] .step .num { border-width: 1px; border-radius: 50%; }
+[data-theme="midnight"] .theme-card.selected,
+[data-theme="midnight"] .resume-card { box-shadow: 0 0 0 1px var(--accent), 0 0 20px -8px var(--accent); border-color: var(--accent); }
+[data-theme="midnight"] .unit-card,
+[data-theme="midnight"] .theme-card,
+[data-theme="midnight"] .rules li { border-width: 1px; }

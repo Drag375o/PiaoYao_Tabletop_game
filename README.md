@@ -7,6 +7,8 @@ A static HTML/canvas site with no build step, so Netlify can serve the folder as
 
 **Run locally:** from the project folder run `python -m http.server 8000` and open http://localhost:8000.
 
+**Start page:** the game opens on a start page in the Auction XI style. It has sections for the commanders' names (remembered in this browser), the five units, board style cards with live previews, and how to play. **To the battlefield** starts a match. **← Menu** in the game returns to the start page, which then offers **Resume match**.
+
 **Board themes:** pick one from the **Board** menu in the top bar. Your choice is remembered in this browser. The styles come from the Auction XI project's themes:
 - **Battleboard** (default): warm wood and sand with cream game discs.
 - **Midnight**: charcoal tactics board in a black bezel, with gold accents and metallic tokens.

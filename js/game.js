@@ -6,7 +6,7 @@
   const MAX_SPEED = 1150;      // default launch speed at full power (px/s)
   const MIN_POWER = 0.06;      // releases weaker than this are cancelled
   const GLYPH_FONT = '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Hiragino Sans GB", sans-serif';
-  const TEAM_NAMES = { red: 'Red', blue: 'Blue' };
+  const TEAM_NAMES = { red: 'Red', blue: 'Blue' };   // replaced by the commanders' names from the start page
   const AIM_HELP = 'Drag one of your units backwards and release to launch it.';
 
   // Default formation, as fractions of each team's half (x from its own back edge).
@@ -161,7 +161,7 @@
     turn = 'red';
     turnNo = 1;
     updateTurnBadge();
-    setStatus(`Red goes first. ${AIM_HELP}`);
+    setStatus(`${TEAM_NAMES.red} goes first. ${AIM_HELP}`);
   }
 
   function setupZone(team) {
@@ -205,7 +205,7 @@
     turn = turn === 'red' ? 'blue' : 'red';
     turnNo++;
     updateTurnBadge();
-    setStatus(`Red ${red} · Blue ${blue} units left. ${TEAM_NAMES[turn]}: ${AIM_HELP}`);
+    setStatus(`${TEAM_NAMES.red} ${red} · ${TEAM_NAMES.blue} ${blue} units left. ${TEAM_NAMES[turn]}: ${AIM_HELP}`);
   }
 
   function showResult(red, blue) {
@@ -406,6 +406,7 @@
     }
     select.value = Themes.current.id;
     select.addEventListener('change', () => Themes.set(select.value));
+    document.addEventListener('themechange', () => { select.value = Themes.current.id; });
   }
 
   function buildLegend() {
@@ -753,10 +754,24 @@
     get theme() { return Themes.current.id; },
   };
 
+  // used by the start page (js/home.js)
+  window.Game = {
+    // begin a fresh match with the commanders' names
+    start(names) {
+      TEAM_NAMES.red = names.red;
+      TEAM_NAMES.blue = names.blue;
+      resize();
+      newMatch();
+    },
+    // back to a match left via the menu
+    resume() { resize(); },
+    // a match is under way and not yet decided
+    inProgress() { return !winner && (phase !== 'select' || setupTeam !== 'red' || pickTotal() > 0 || bodies.length > 0); },
+  };
+
   Themes.load();
   buildThemeSwitch();
   resize();
   buildLegend();
-  newMatch();
   requestAnimationFrame(frame);
 })();

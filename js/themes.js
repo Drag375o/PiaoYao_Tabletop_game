@@ -346,6 +346,7 @@ const Themes = (() => {
   function set(id, save = true) {
     current = LIST.find(t => t.id === id) || LIST.find(t => t.id === DEFAULT);
     document.documentElement.dataset.theme = current.id;
+    document.dispatchEvent(new Event('themechange'));
     if (save) {
       try { localStorage.setItem(STORAGE_KEY, current.id); } catch (e) { /* storage blocked */ }
     }

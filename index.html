@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Piaoyao Battleboard</title>
+  <meta name="description" content="A two-player tabletop battle game: line up your army, flick your units and knock every enemy off the board.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23f1e6d2' stroke='%23c8483b' stroke-width='5'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Bebas+Neue&family=Cabin+Sketch:wght@400;700&family=Caveat:wght@600;700&family=Inter:wght@400;600&family=Kalam:wght@400;700&family=Patrick+Hand&family=Rajdhani:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/home.css">
   <link rel="stylesheet" href="css/themes/classic.css">
   <link rel="stylesheet" href="css/themes/midnight.css">
   <link rel="stylesheet" href="css/themes/chalkboard.css">
@@ -16,40 +18,105 @@
   <link rel="stylesheet" href="css/themes/sketchbook.css">
 </head>
 <body>
-  <header class="bar">
-    <h1>Piaoyao Battleboard</h1>
-    <div id="turn" class="turn"></div>
-    <div id="status" class="status"></div>
-    <label class="theme-switch">Board <select id="theme" aria-label="Board theme"></select></label>
-    <button id="ready" class="primary" type="button" hidden>Ready</button>
-    <button id="reset" type="button">New match</button>
-  </header>
-  <main id="stage">
-    <canvas id="board" aria-label="Battleboard"></canvas>
-    <div id="setup" class="overlay" hidden>
-      <div class="overlay-card setup-card">
-        <h2 id="setup-title"></h2>
-        <p>Pick up to 5 units. Repeats are allowed.</p>
-        <ul id="unit-picker" class="picker"></ul>
-        <div id="pick-total" class="pick-total"></div>
-        <div class="actions">
-          <button id="pick-default" type="button">One of each</button>
-          <button id="pick-done" class="primary" type="button">Place units</button>
+  <!-- start page -->
+  <section id="home" class="home">
+    <header class="title-block">
+      <h1 class="logo">Piaoyao <span>Battleboard</span></h1>
+      <p class="tagline">Line up your army. Flick your units. Knock every enemy off the board.</p>
+    </header>
+
+    <div class="home-board">
+      <div id="resume-card" class="resume-card" hidden>
+        <div><b>Match in progress</b><small>Pick up where you left off, or start a fresh one below.</small></div>
+        <button id="resume" class="primary" type="button">Resume match</button>
+      </div>
+
+      <div class="field">
+        <h2 class="step"><span class="num">1</span>Commanders</h2>
+        <p class="field-note">Two players, one screen. Take turns at the same device.</p>
+        <div class="commanders">
+          <div class="commander red">
+            <label class="name-label" for="name-red">Red army · plays first</label>
+            <input id="name-red" class="name-input" maxlength="16" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="commander blue">
+            <label class="name-label" for="name-blue">Blue army</label>
+            <input id="name-blue" class="name-input" maxlength="16" autocomplete="off" spellcheck="false">
+          </div>
         </div>
       </div>
-    </div>
-    <div id="overlay" class="overlay" hidden>
-      <div class="overlay-card">
-        <h2 id="overlay-title"></h2>
-        <p id="overlay-text"></p>
-        <button id="play-again" type="button">Play again</button>
+
+      <div class="field">
+        <h2 class="step"><span class="num">2</span>Meet your units</h2>
+        <p class="field-note">Bring up to 5 into battle. Mix them however you like.</p>
+        <div id="unit-cards" class="unit-grid"></div>
+      </div>
+
+      <div class="field">
+        <h2 class="step"><span class="num">3</span>Board style</h2>
+        <div id="theme-cards" class="theme-grid"></div>
+      </div>
+
+      <div class="field">
+        <h2 class="step"><span class="num">?</span>How to play</h2>
+        <ol id="rules" class="rules"></ol>
+      </div>
+
+      <div class="start-row">
+        <button id="start" class="primary big" type="button">To the battlefield →</button>
       </div>
     </div>
-  </main>
-  <footer id="legend" class="legend" aria-label="Unit types"></footer>
+
+    <footer class="disclaimer">
+      <b>Unofficial fan-made game.</b> Inspired by the Piaoyao Battleboard minigame in <i>Where Winds Meet</i>.
+      Free to play and not affiliated with or endorsed by the makers or publishers of <i>Where Winds Meet</i>.
+      Unit stats are this game's own and not official values.
+    </footer>
+  </section>
+
+  <!-- game screen -->
+  <div id="game" class="game" hidden>
+    <header class="bar">
+      <button id="menu" type="button" aria-label="Back to the start page">← Menu</button>
+      <h1>Piaoyao Battleboard</h1>
+      <div id="turn" class="turn"></div>
+      <div id="status" class="status"></div>
+      <label class="theme-switch">Board <select id="theme" aria-label="Board theme"></select></label>
+      <button id="ready" class="primary" type="button" hidden>Ready</button>
+      <button id="reset" type="button">New match</button>
+    </header>
+    <main id="stage">
+      <canvas id="board" aria-label="Battleboard"></canvas>
+      <div id="setup" class="overlay" hidden>
+        <div class="overlay-card setup-card">
+          <h2 id="setup-title"></h2>
+          <p>Pick up to 5 units. Repeats are allowed.</p>
+          <ul id="unit-picker" class="picker"></ul>
+          <div id="pick-total" class="pick-total"></div>
+          <div class="actions">
+            <button id="pick-default" type="button">One of each</button>
+            <button id="pick-done" class="primary" type="button">Place units</button>
+          </div>
+        </div>
+      </div>
+      <div id="overlay" class="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title"></h2>
+          <p id="overlay-text"></p>
+          <div class="actions">
+            <button id="to-menu" type="button">Main menu</button>
+            <button id="play-again" class="primary" type="button">Play again</button>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer id="legend" class="legend" aria-label="Unit types"></footer>
+  </div>
+
   <script src="js/units.js"></script>
   <script src="js/physics.js"></script>
   <script src="js/themes.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/home.js"></script>
 </body>
 </html>

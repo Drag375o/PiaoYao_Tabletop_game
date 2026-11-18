@@ -13,6 +13,7 @@
   --line: #d9d2bd;
   --line-strong: #2e3036;
   --accent: #ffe14d;
+  --highlight: rgba(255, 225, 77, 0.6);
   --accent-ink: #2e3036;
   --team-red: #c0262d;
   --team-blue: #1f3fa8;
@@ -61,3 +62,36 @@
 [data-theme="sketchbook"] .pick-glyph,
 [data-theme="sketchbook"] .legend-item b { border-radius: 50% 44% 54% 47% / 47% 54% 44% 50%; }
 [data-theme="sketchbook"] .legend-item b { border: 1.5px solid var(--ink); line-height: 19px; }
+
+/* start page: a notebook page with spiral binding and a red margin */
+[data-theme="sketchbook"] .home-board {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0) 34px, rgba(214, 72, 72, 0.5) 34px 36px, rgba(0, 0, 0, 0) 36px),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0 29px, rgba(80, 130, 205, 0.2) 29px 30px),
+    var(--surface);
+  background-position: 0 0, 0 14px, 0 0;
+  padding-left: 52px;
+  padding-top: 34px;
+}
+[data-theme="sketchbook"] .home-board::before {
+  content: '';
+  position: absolute; top: -9px; left: 14px; right: 14px; height: 24px;
+  background:
+    radial-gradient(circle at 50% 70%, #6d675c 0 3px, rgba(0, 0, 0, 0) 3.5px) 0 0 / 26px 24px repeat-x,
+    radial-gradient(ellipse 4px 11px at 50% 40%, rgba(0, 0, 0, 0) 0 2px, #a9adb3 2.5px 4px, rgba(0, 0, 0, 0) 4.5px) 0 0 / 26px 24px repeat-x;
+  pointer-events: none;
+}
+[data-theme="sketchbook"] .logo { font-size: clamp(3.4rem, 8vw, 5.6rem); }
+[data-theme="sketchbook"] .step { font-size: 1.9rem; }
+[data-theme="sketchbook"] .rules b,
+[data-theme="sketchbook"] .u-name { font-size: 1.35rem; }
+[data-theme="sketchbook"] .name-input { font-size: 2rem; }
+[data-theme="sketchbook"] .theme-card { font-size: 1.25rem; }
+[data-theme="sketchbook"] .theme-card.selected,
+[data-theme="sketchbook"] .resume-card {
+  background: linear-gradient(176deg, rgba(0, 0, 0, 0) 10%, var(--highlight) 10% 90%, rgba(0, 0, 0, 0) 90%);
+}
+[data-theme="sketchbook"] .unit-card,
+[data-theme="sketchbook"] .theme-card { background: rgba(253, 251, 243, 0.7); }
+[data-theme="sketchbook"] .unit-badge b { border-radius: 50% 44% 54% 47% / 47% 54% 44% 50%; }
+@media (max-width: 640px) { [data-theme="sketchbook"] .home-board { padding-left: 44px; } }

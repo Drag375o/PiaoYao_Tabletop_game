@@ -13,6 +13,7 @@
   --line: rgba(239, 236, 226, 0.26);
   --line-strong: rgba(239, 236, 226, 0.85);
   --accent: #f3d36b;
+  --highlight: rgba(243, 211, 107, 0.16);
   --accent-ink: #1f2220;
   --team-red: #ff9b90;
   --team-blue: #93caff;
@@ -54,3 +55,22 @@
 [data-theme="chalkboard"] .overlay-card,
 [data-theme="chalkboard"] .bar,
 [data-theme="chalkboard"] .legend { background-color: #262a28; }
+
+/* start page: slate in a walnut frame */
+[data-theme="chalkboard"] {
+  --walnut: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.0035 0.11' numOctaves='4' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.6 0 0 0 -.08  .38 0 0 0 -.06  .24 0 0 0 -.04  0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+[data-theme="chalkboard"] .home-board {
+  border: 11px solid transparent;
+  background:
+    radial-gradient(ellipse at 18% 25%, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0) 45%) padding-box,
+    radial-gradient(ellipse at 85% 80%, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0) 50%) padding-box,
+    linear-gradient(170deg, #2a2e2c, #222624) padding-box,
+    var(--walnut) border-box,
+    #2a1a10 border-box;
+  box-shadow: 0 0 0 1px #0b0705, var(--shadow), inset 0 2px 8px rgba(0, 0, 0, 0.55);
+}
+[data-theme="chalkboard"] .logo,
+[data-theme="chalkboard"] .step { text-shadow: 0 0 2px rgba(255, 255, 255, 0.35); }
+[data-theme="chalkboard"] .theme-card.selected { border-color: var(--accent); box-shadow: 3px 4px 0 rgba(239, 236, 226, 0.5); }
+[data-theme="chalkboard"] .unit-badge b { background: transparent; border-radius: 52% 46% 50% 48% / 46% 52% 48% 50%; }

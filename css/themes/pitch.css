@@ -14,6 +14,7 @@
   --line: rgba(255, 255, 255, 0.32);
   --line-strong: #ffffff;
   --accent: #ffd60a;
+  --highlight: rgba(255, 214, 10, 0.24);
   --accent-ink: #111111;
   --team-red: #ff4545;
   --team-blue: #3d8bff;
@@ -50,3 +51,17 @@
 [data-theme="pitch"] .pick-glyph { color: #fff !important; border-color: #fff !important; }
 [data-theme="pitch"] .pick-glyph.red { background: var(--team-red); }
 [data-theme="pitch"] .pick-glyph.blue { background: var(--team-blue); }
+
+/* start page: dark turf glass marked out with a white touchline */
+[data-theme="pitch"] .home-board { border: 2px solid rgba(255, 255, 255, 0.85); backdrop-filter: blur(6px); }
+[data-theme="pitch"] .logo { transform: none; font-size: clamp(3.2rem, 8vw, 5.4rem); letter-spacing: 0.04em; }
+[data-theme="pitch"] .logo span { color: var(--accent); }
+[data-theme="pitch"] .logo::after { border-bottom-color: #fff; border-radius: 0; height: 6px; bottom: -6px; }
+[data-theme="pitch"] .step { font-size: 1.8rem; letter-spacing: 0.04em; }
+[data-theme="pitch"] .step .num { border-radius: 50%; }
+[data-theme="pitch"] .theme-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+[data-theme="pitch"] .unit-card,
+[data-theme="pitch"] .theme-card { background: rgba(0, 0, 0, 0.18); }
+[data-theme="pitch"] .unit-badge b { color: #fff; }
+[data-theme="pitch"] .unit-badge b:first-child { background: var(--team-red); border-color: #fff; }
+[data-theme="pitch"] .unit-badge b + b { background: var(--team-blue); border-color: #fff; }
