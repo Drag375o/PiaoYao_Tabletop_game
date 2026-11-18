@@ -1,11 +1,15 @@
 The following game is a Piao game inspired web game
-that can be played via Netlify.
+that can be played online on GitHub Pages.
 
 ## Web version
 
-**Play online:** https://drag375o.github.io/PiaoYao_Tabletop_game/ (GitHub Pages, updates on every push to `main`)
+**Play online (main version):** https://drag375o.github.io/PiaoYao_Tabletop_game/
 
-A static HTML/canvas site with no build step, so it can be served as-is. GitHub Pages serves the repo root (`.nojekyll` turns off Jekyll processing). A Netlify copy is set up too (https://piaoyao-battleboard.netlify.app, see `netlify.toml`). It only updates when deployed and needs Netlify credits.
+This GitHub Pages site is the **main version** of the game. It is served straight from the `main` branch and updates on every push, so it always has the latest features (vs Computer, 3 players, online rooms). All development continues here.
+
+**Older Netlify copy:** https://piaoyao-battleboard.netlify.app is kept as-is. It is an earlier snapshot (start page and 2 players on one screen) and is no longer updated. `netlify.toml` belongs to it.
+
+A static HTML/canvas site with no build step, so it can be served as-is. GitHub Pages serves the repo root (`.nojekyll` turns off Jekyll processing).
 
 **Run locally:** from the project folder run `python -m http.server 8000` and open http://localhost:8000.
 
