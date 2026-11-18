@@ -10,11 +10,19 @@
 <body>
   <header class="bar">
     <h1>Piaoyao Battleboard</h1>
-    <div id="status" class="status">Drag a piece backwards and release to launch it.</div>
-    <button id="reset" type="button">Reset board</button>
+    <div id="turn" class="turn"></div>
+    <div id="status" class="status"></div>
+    <button id="reset" type="button">New match</button>
   </header>
   <main id="stage">
     <canvas id="board" aria-label="Battleboard"></canvas>
+    <div id="overlay" class="overlay" hidden>
+      <div class="overlay-card">
+        <h2 id="overlay-title"></h2>
+        <p id="overlay-text"></p>
+        <button id="play-again" type="button">Play again</button>
+      </div>
+    </div>
   </main>
   <footer id="legend" class="legend" aria-label="Unit types"></footer>
   <script src="js/units.js"></script>

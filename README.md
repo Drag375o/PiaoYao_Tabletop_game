@@ -9,11 +9,12 @@ A static HTML/canvas site with no build step, so Netlify can serve the folder as
 
 **Controls:** press on a piece, drag backwards (like a slingshot) and release. A longer pull gives more force (the yellow ring shows power). A very short pull cancels the launch.
 
-**Current status (step 2 – units and abilities):**
-- Each side starts with one of each unit in a default formation (red left, blue right).
+**Current status (step 3 – turns and win condition):**
+- Two players share one screen (hot-seat). Each side starts with one of each unit in a default formation (red left, blue right).
+- Red goes first. On your turn you launch one of your own units (they pulse in your colour). The turn passes once every piece has stopped.
 - Pieces slide with friction and collide with momentum-based knockback, including chain collisions.
 - A piece is eliminated when its centre crosses the board edge.
-- Any piece can be launched once the board is at rest. Turns and the win condition are not in yet.
+- The match ends when a side has no units left. The other side wins, or it's a draw if both armies are wiped out on the same turn. **New match** restarts at any time.
 
 **Units in this web version** (stats are this version's own tuning, not official numbers):
 

@@ -47,6 +47,50 @@ body {
   font-size: 14px;
 }
 
+.turn {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #555;
+  white-space: nowrap;
+}
+
+.turn.red { background: var(--red); }
+.turn.blue { background: var(--blue); }
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 6, 0.55);
+  padding: 16px;
+}
+
+.overlay[hidden] { display: none; }
+
+.overlay-card {
+  background: var(--panel);
+  border: 1px solid #5a4a36;
+  border-radius: 12px;
+  padding: 24px 32px;
+  text-align: center;
+  max-width: 360px;
+}
+
+.overlay-card h2 {
+  margin: 0 0 8px;
+  color: var(--accent);
+}
+
+.overlay-card p {
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
 button {
   background: #3a3025;
   color: var(--text);

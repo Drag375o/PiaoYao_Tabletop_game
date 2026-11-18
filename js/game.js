@@ -7,7 +7,8 @@
   const MIN_POWER = 0.06;      // releases weaker than this are cancelled
   const TEAM_COLORS = { red: '#c8483b', blue: '#3b78c8' };
   const GLYPH_FONT = '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Hiragino Sans GB", sans-serif';
-  const DEFAULT_STATUS = 'Drag a piece backwards and release to launch it.';
+  const TEAM_NAMES = { red: 'Red', blue: 'Blue' };
+  const AIM_HELP = 'Drag one of your units backwards and release to launch it.';
 
   // Default formation, as fractions of each team's half (x from its own back edge).
   const FORMATION = [
@@ -21,9 +22,14 @@
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
   const statusEl = document.getElementById('status');
+  const turnEl = document.getElementById('turn');
+  const overlayEl = document.getElementById('overlay');
 
   let bodies = [];
   let drag = null;     // { body, px, py } while aiming
+  let turn = 'red';    // team whose turn it is
+  let turnNo = 1;
+  let winner = null;   // 'red' | 'blue' | 'draw' once the match is over
   let view = { scale: 1, ox: 0, oy: 0 };
   let lastTime = performance.now();
 
@@ -47,12 +53,53 @@
       });
     }
     drag = null;
-    setStatus(DEFAULT_STATUS);
+    turn = 'red';
+    turnNo = 1;
+    winner = null;
+    overlayEl.hidden = true;
+    updateTurnBadge();
+    setStatus(AIM_HELP);
   }
 
   function setStatus(text) { statusEl.textContent = text; }
 
+  function updateTurnBadge() {
+    turnEl.className = 'turn ' + turn;
+    turnEl.textContent = `Turn ${turnNo} · ${TEAM_NAMES[turn]}`;
+  }
+
   function units() { return bodies.filter(b => b.kind === 'unit' && !b.gone); }
+
+  function teamCount(team) { return units().filter(b => b.team === team).length; }
+
+  // Called once everything has stopped after a launch.
+  function endTurn() {
+    bodies = bodies.filter(b => !b.gone);
+    const red = teamCount('red'), blue = teamCount('blue');
+    if (red === 0 || blue === 0) {
+      winner = red === blue ? 'draw' : red > 0 ? 'red' : 'blue';
+      showResult(red, blue);
+      return;
+    }
+    turn = turn === 'red' ? 'blue' : 'red';
+    turnNo++;
+    updateTurnBadge();
+    setStatus(`Red ${red} · Blue ${blue} units left. ${TEAM_NAMES[turn]}: ${AIM_HELP}`);
+  }
+
+  function showResult(red, blue) {
+    turnEl.className = 'turn' + (winner === 'draw' ? '' : ' ' + winner);
+    turnEl.textContent = winner === 'draw' ? 'Draw' : `${TEAM_NAMES[winner]} wins`;
+    document.getElementById('overlay-title').textContent =
+      winner === 'draw' ? 'Draw!' : `${TEAM_NAMES[winner]} wins!`;
+    const left = Math.max(red, blue);
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    document.getElementById('overlay-text').textContent = winner === 'draw'
+      ? 'Both armies were knocked off the board on the same turn.'
+      : `${TEAM_NAMES[winner]} won in ${plural(turnNo, 'turn')} with ${plural(left, 'unit')} left on the board.`;
+    setStatus('Match over.');
+    overlayEl.hidden = false;
+  }
 
   // ---------- abilities ----------
 
@@ -163,10 +210,14 @@
   }
 
   canvas.addEventListener('pointerdown', evt => {
-    if (!Physics.isSettled(bodies)) return;
+    if (winner || !Physics.isSettled(bodies)) return;
     const p = toWorld(evt);
     const body = pieceAt(p);
     if (!body) return;
+    if (body.team !== turn) {
+      setStatus(`It's ${TEAM_NAMES[turn]}'s turn. Pick one of your own units.`);
+      return;
+    }
     drag = { body, px: p.x, py: p.y };
     const boosted = flagBoost(body) > 1 ? ' (Flag Bearer boost active)' : '';
     setStatus(UNITS[body.type].hint + boosted);
@@ -186,7 +237,7 @@
       launch(drag.body, nx, ny, power);
       setStatus('Pieces in motion…');
     } else {
-      setStatus(DEFAULT_STATUS);
+      setStatus(AIM_HELP);
     }
     drag = null;
   });
@@ -194,6 +245,7 @@
   canvas.addEventListener('pointercancel', () => { drag = null; });
 
   document.getElementById('reset').addEventListener('click', setupBoard);
+  document.getElementById('play-again').addEventListener('click', setupBoard);
   window.addEventListener('resize', resize);
 
   function buildLegend() {
@@ -422,13 +474,29 @@
     ctx.fill();
   }
 
-  function render() {
+  // soft pulsing ring around the units the current player may launch
+  function drawTurnHighlights() {
+    const pulse = 0.35 + 0.25 * Math.sin(performance.now() / 300);
+    ctx.strokeStyle = TEAM_COLORS[turn];
+    ctx.globalAlpha = pulse;
+    ctx.lineWidth = 3;
+    for (const b of units()) {
+      if (b.team !== turn || b.falling || (drag && drag.body === b)) continue;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function render(idle) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#0f0c09';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(view.scale, 0, 0, view.scale, view.ox, view.oy);
     drawBoard();
     drawAuras();
+    if (idle) drawTurnHighlights();
     for (const b of bodies) if (!b.gone && b.kind === 'unit') drawPiece(b);
     for (const b of bodies) if (!b.gone && b.kind === 'projectile') drawProjectile(b);
     drawAim();
@@ -447,14 +515,9 @@
       if (b.kind === 'projectile' && !b.falling && b.vx === 0 && b.vy === 0) b.gone = true;
     }
     const settled = Physics.isSettled(bodies);
-    if (wasMoving && settled) {
-      bodies = bodies.filter(b => !b.gone);
-      const red = units().filter(b => b.team === 'red').length;
-      const blue = units().filter(b => b.team === 'blue').length;
-      setStatus(`Red ${red} · Blue ${blue} units on the board. Drag a unit to launch it.`);
-    }
+    if (wasMoving && settled) endTurn();
     wasMoving = !settled;
-    render();
+    render(settled && !winner);
     requestAnimationFrame(frame);
   }
 
@@ -471,6 +534,8 @@
       };
     },
     settled: () => Physics.isSettled(bodies),
+    get turn() { return turn; },
+    get winner() { return winner; },
   };
 
   resize();
