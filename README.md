@@ -9,7 +9,7 @@ A static HTML/canvas site with no build step, so it can be served as-is. GitHub 
 
 **Run locally:** from the project folder run `python -m http.server 8000` and open http://localhost:8000.
 
-**Start page:** the game opens on a start page in the Auction XI style. It has sections for who's playing (vs Computer, or 2 or 3 players on one screen), the commanders' names (remembered in this browser), the five units, board style cards with live previews, and how to play. **To the battlefield** starts a match. **← Menu** in the game returns to the start page, which then offers **Resume match**.
+**Start page:** the game opens on a start page in the Auction XI style. It has sections for who's playing (vs Computer, 2 or 3 players on one screen, or Online), the commanders' names (remembered in this browser), the five units, board style cards with live previews, and how to play. **To the battlefield** starts a match. **← Menu** in the game returns to the start page, which then offers **Resume match**.
 
 **Board themes:** pick one from the **Board** menu in the top bar. Your choice is remembered in this browser. The styles come from the Auction XI project's themes:
 - **Battleboard** (default): warm wood and sand with cream game discs.
@@ -24,6 +24,9 @@ A static HTML/canvas site with no build step, so it can be served as-is. GitHub 
 - **vs Computer:** you command Red, and the computer commands Blue. It picks its own army and formation. On its turn it tries every unit against every enemy at several angles and strengths, plays each shot out with the real physics, and launches one of the best. **Easy** picks loosely and aims roughly, **Normal** is a fair fight, and **Hard** almost never misses.
 - **2 players · same screen:** hot-seat. Red plays the left half, Blue the right.
 - **3 players · same screen:** hot-seat for Red, Blue and Purple on a **round arena** split into three equal 120° wedges, one per army. The rules are the same: set up in your own wedge, take turns (Red → Blue → Purple; armies that have been wiped out are skipped), and knock units off the round edge. The last army standing wins.
+- **Online · different devices (2 or 3 players):** one player picks **Create a room**, chooses 2 or 3 players, and shares the 5-letter room code. The others open the game on their own phone or computer, choose **Online**, type the code and press **Join room**. Once at least one friend has joined, the host presses **Start match**. The computer fills any empty seat. The host plays Red, and guests play Blue (and Purple), each on their own device with their own board theme. A 3-player room uses the round arena.
+  - **How it works:** peer-to-peer over WebRTC using [PeerJS](https://peerjs.com), the same approach as Auction XI, so no server of our own is needed. The free PeerJS server only introduces the browsers to each other. The host's browser runs the real game and physics. Guests send their moves (army choice, unit placement, Ready, aiming, launches), the host checks them against the rules, and the board is streamed back about 20 times a second. Everyone sees each other aim.
+  - **If someone leaves:** if a guest disconnects mid-match, the computer takes over their army so the match can finish. If the host leaves, the guests are told and returned to the start page.
 
 **How a match runs:**
 - **Choose your army:** each player picks up to 5 units, and repeats are allowed (e.g. 3 Cavalry + 2 Shield Soldiers). **One of each** fills the default army.
@@ -42,6 +45,23 @@ A static HTML/canvas site with no build step, so it can be served as-is. GitHub 
 | 旗 | Flag Bearer | Has a gold speed zone. Allies whose centre is inside it launch (or fire) 30% faster. |
 | 炮 | Artillery | Fires a heavy cannonball that keeps rolling through clustered units. The artillery recoils slightly backwards. |
 | 骑 | Cavalry | Fastest launch and longest slide, with a heavy impact. Built for shoving enemies off the edge. |
+
+**Code layout** (plain JavaScript, no build step):
+
+| File | What it does |
+|---|---|
+| `index.html` | Start page, online lobby and game screen |
+| `css/style.css`, `css/home.css` | Layout shared by every theme |
+| `css/themes/*.css` | One stylesheet per board theme |
+| `js/units.js` | Unit and projectile stats |
+| `js/physics.js` | Disc physics: friction, collisions, falling off the edge |
+| `js/arena.js` | Board shapes: rectangle (2 armies) and round arena (3 armies) |
+| `js/rules.js` | Launching, Flag Bearer boost, arrow hits, Archer aim preview |
+| `js/ai.js` | Computer player |
+| `js/themes.js` | Canvas drawing for each board theme |
+| `js/game.js` | Match flow, input and rendering, plus the online host/guest hooks |
+| `js/home.js` | Start page |
+| `js/net.js`, `js/online.js` | Online rooms (PeerJS) and the lobby |
 
 The game instruction are as follows :
 # Piaoyao Battleboard

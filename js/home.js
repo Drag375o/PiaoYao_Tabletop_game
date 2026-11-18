@@ -21,6 +21,7 @@
 
   const homeEl = document.getElementById('home');
   const gameEl = document.getElementById('game');
+  const lobbyEl = document.getElementById('lobby');
   const nameInputs = {
     red: document.getElementById('name-red'),
     blue: document.getElementById('name-blue'),
@@ -82,14 +83,21 @@
     }
     const cpu = settings.mode === 'cpu';
     const trio = settings.mode === 'trio';
+    const online = settings.mode === 'online';
     document.getElementById('level-row').hidden = !cpu;
+    document.getElementById('online-box').hidden = !online;
+    document.getElementById('start-row').hidden = online;
+    document.getElementById('commander-blue').hidden = online;
     document.getElementById('commander-purple').hidden = !trio;
     document.getElementById('commanders').classList.toggle('trio', trio);
+    document.getElementById('label-red').textContent = online ? 'Your name' : 'Red army · plays first';
     document.getElementById('commanders-note').textContent = cpu
       ? 'You command Red. The computer commands Blue.'
       : trio
         ? 'Three players, one screen, on a round arena. Take turns: Red, then Blue, then Purple.'
-        : 'Two players, one screen. Take turns at the same device.';
+        : online
+          ? 'The other players see this name. The room\'s host plays Red.'
+          : 'Two players, one screen. Take turns at the same device.';
     document.getElementById('label-blue').textContent = cpu ? `Blue army · computer (${AI.LEVELS[settings.level].name})` : 'Blue army';
     const blue = nameInputs.blue;
     if (cpu && !blue.disabled) {
@@ -211,20 +219,32 @@
 
   // ---------- navigation ----------
 
+  // an online match keeps running while a player looks at the start page
   function showHome() {
-    Game.pause();
+    const inRoom = typeof Online !== 'undefined' && Online.inRoom();
+    if (!inRoom) Game.pause();
     gameEl.hidden = true;
+    lobbyEl.hidden = true;
     homeEl.hidden = false;
     document.getElementById('resume-card').hidden = !Game.inProgress();
+    document.getElementById('leave-room-home').hidden = !inRoom;
     homeEl.scrollTop = 0;
   }
 
   function showGame() {
     homeEl.hidden = true;
+    lobbyEl.hidden = true;
     gameEl.hidden = false;
   }
 
+  function showLobby() {
+    homeEl.hidden = true;
+    gameEl.hidden = true;
+    lobbyEl.hidden = false;
+  }
+
   document.getElementById('start').addEventListener('click', () => {
+    if (typeof Online !== 'undefined' && Online.inRoom()) Online.leave();
     const teams = MODE_TEAMS[settings.mode];
     const names = readNames(teams);
     const blue = settings.mode === 'cpu' ? blueName : nameInputs.blue.value;
@@ -250,6 +270,26 @@
 
   document.getElementById('menu').addEventListener('click', showHome);
   document.getElementById('to-menu').addEventListener('click', showHome);
+
+  // used by the online rooms (js/online.js)
+  window.Home = {
+    showHome,
+    showGame,
+    showLobby,
+    myName() {
+      const n = nameInputs.red.value.trim() || DEFAULT_NAMES.red;
+      saveNames({ ...loadNames(), red: n });
+      return n.slice(0, 16);
+    },
+    // show a message in the Online box (switching to Online mode)
+    onlineMessage(text) {
+      settings.mode = 'online';
+      renderMode();
+      const el = document.getElementById('online-message');
+      el.textContent = text || '';
+      el.hidden = !text;
+    },
+  };
 
   const names = loadNames();
   nameInputs.red.value = names.red;

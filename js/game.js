@@ -17,7 +17,7 @@
   const readyBtn = document.getElementById('ready');
 
   // who is playing; set by Game.start() from the start page
-  let match = { mode: 'pvp', teams: ['red', 'blue'], names: { red: 'Red', blue: 'Blue' }, cpu: {}, level: 'normal' };
+  let match = { mode: 'pvp', teams: ['red', 'blue'], names: { red: 'Red', blue: 'Blue' }, cpu: {}, remote: {}, level: 'normal' };
   let arena = Arena.create(match.teams);
 
   let bodies = [];
@@ -34,6 +34,15 @@
   let paused = false;  // the start page is showing
   let tasks = [];      // { at, fn } delayed steps, run by the game loop (so they pause with it)
   let cpuAim = null;   // { body, nx, ny, power, t0 } while the computer draws its shot
+
+  // online play (js/online.js): the host runs the game as usual, with remote players' armies in
+  // match.remote; a guest's game only mirrors the host's board and sends its own moves.
+  let role = 'local';  // 'local' (this device runs the game) | 'guest'
+  let me = null;       // a guest's own army
+  let hooks = {};      // { action(msg) } for guests, { tick() } for hosts
+  let hostSettled = true;   // guest: the host's board has stopped moving
+  let pickSent = false;     // guest: army choice sent for the current setup turn
+  let lastSent = 0;         // guest: throttles drag/aim messages
   let view = { scale: 1, ox: 0, oy: 0 };
   let lastTime = performance.now();
   let clock = 0;       // game time in ms, stops while paused
@@ -42,7 +51,15 @@
 
   function name(team) { return match.names[team]; }
   function isCpu(team) { return !!match.cpu[team]; }
+  function isRemote(team) { return !!(match.remote && match.remote[team]); }
+  // whether the person at this device controls `team`
+  function isLocal(team) { return role === 'guest' ? team === me : !isCpu(team) && !isRemote(team); }
   function later(ms, fn) { tasks.push({ at: clock + ms, fn }); }
+
+  function doLaunch(body, nx, ny, power) {
+    Rules.launch(bodies, body, nx, ny, power);
+    for (const b of bodies) if (b.id == null) b.id = nextId++;
+  }
 
   function makeUnit(type, team, x, y) {
     const def = UNITS[type];
@@ -86,8 +103,16 @@
       later(700, advanceSetup);
       return;
     }
-    document.getElementById('setup-title').textContent = `${name(setupTeam)}: choose your army`;
     setStatus(`${name(setupTeam)}: choose up to ${TEAM_SIZE} units.`);
+    if (isRemote(setupTeam)) {
+      setupEl.hidden = true;
+      return;
+    }
+    showPicker();
+  }
+
+  function showPicker() {
+    document.getElementById('setup-title').textContent = `${name(setupTeam)}: choose your army`;
     renderPicker();
     setupEl.hidden = false;
   }
@@ -139,8 +164,26 @@
   });
 
   document.getElementById('pick-done').addEventListener('click', () => {
-    if (pickTotal() > 0) beginPlace();
+    if (pickTotal() === 0) return;
+    if (role === 'guest') {
+      hooks.action({ t: 'picks', picks });
+      pickSent = true;
+      setupEl.hidden = true;
+      return;
+    }
+    beginPlace();
   });
+
+  // only whole, known unit types, at most TEAM_SIZE (picks from the network are checked)
+  function cleanPicks(raw) {
+    const clean = {};
+    let total = 0;
+    for (const type of Object.keys(UNITS)) {
+      const n = Math.max(0, Math.min(TEAM_SIZE - total, Math.floor(Number(raw && raw[type]) || 0)));
+      if (n) { clean[type] = n; total += n; }
+    }
+    return total ? clean : null;
+  }
 
   // Put the chosen units into the default formation (back to front).
   function placeArmy(team) {
@@ -158,7 +201,7 @@
     placeArmy(setupTeam);
     phase = 'place';
     setupEl.hidden = true;
-    readyBtn.hidden = false;
+    readyBtn.hidden = !isLocal(setupTeam);
     turnEl.textContent = `${name(setupTeam)} · Formation`;
     setStatus(`${name(setupTeam)}: drag your units anywhere in your zone, then press Ready.`);
   }
@@ -169,7 +212,11 @@
   }
 
   readyBtn.addEventListener('click', () => {
-    if (phase === 'place' && !isCpu(setupTeam)) advanceSetup();
+    if (role === 'guest') {
+      if (phase === 'place' && setupTeam === me) { hooks.action({ t: 'ready' }); readyBtn.hidden = true; }
+      return;
+    }
+    if (phase === 'place' && isLocal(setupTeam)) advanceSetup();
   });
 
   function startBattle() {
@@ -254,9 +301,9 @@
     const { body, nx, ny, power, t0 } = cpuAim;
     const t = (clock - t0) / CPU_AIM_MS;
     const pull = Math.min(t, 1) * power * MAX_DRAG;
-    drag = { body, px: body.x - nx * pull, py: body.y - ny * pull, cpu: true };
+    drag = { body, px: body.x - nx * pull, py: body.y - ny * pull, auto: true };
     if (t >= 1.25) {
-      Rules.launch(bodies, body, nx, ny, power);
+      doLaunch(body, nx, ny, power);
       drag = null;
       cpuAim = null;
       setStatus('Pieces in motion…');
@@ -314,14 +361,15 @@
   canvas.addEventListener('pointerdown', evt => {
     const p = toWorld(evt);
     if (phase === 'place') {
-      if (isCpu(setupTeam)) return;
+      if (!isLocal(setupTeam)) return;
       const body = pieceAt(p);
       if (!body || body.team !== setupTeam) return;
       moving = { body, ox: body.x, oy: body.y, dx: body.x - p.x, dy: body.y - p.y };
       canvas.setPointerCapture(evt.pointerId);
       return;
     }
-    if (phase !== 'battle' || winner || isCpu(turn) || !Physics.isSettled(bodies)) return;
+    const still = role === 'guest' ? hostSettled : Physics.isSettled(bodies);
+    if (phase !== 'battle' || winner || !isLocal(turn) || !still || (drag && drag.auto)) return;
     const body = pieceAt(p);
     if (!body) return;
     if (body.team !== turn) {
@@ -340,11 +388,25 @@
       const pos = clampToZone(moving.body, p.x + moving.dx, p.y + moving.dy);
       moving.body.x = pos.x;
       moving.body.y = pos.y;
+      if (role === 'guest') {
+        moving.body.tx = pos.x;
+        moving.body.ty = pos.y;
+        throttled({ t: 'move', id: moving.body.id, x: pos.x, y: pos.y });
+      }
       return;
     }
-    if (!drag || drag.cpu) return;
+    if (!drag || drag.auto) return;
     drag.px = p.x; drag.py = p.y;
+    if (role === 'guest') throttled({ t: 'aim', id: drag.body.id, px: p.x, py: p.y });
   });
+
+  // a guest sends drags and aim at most ~20 times a second
+  function throttled(msg) {
+    const now = performance.now();
+    if (now - lastSent < 50) return;
+    lastSent = now;
+    hooks.action(msg);
+  }
 
   canvas.addEventListener('pointerup', () => {
     if (moving) {
@@ -354,13 +416,22 @@
         moving.body.y = moving.oy;
         setStatus('Units can’t overlap. Drop it on a free spot.');
       }
+      if (role === 'guest') {
+        const b = moving.body;
+        b.tx = b.x;
+        b.ty = b.y;
+        hooks.action({ t: 'move', id: b.id, x: b.x, y: b.y, final: true });
+      }
       moving = null;
       return;
     }
-    if (!drag || drag.cpu) return;
+    if (!drag || drag.auto) return;
     const { nx, ny, power } = launchVector(drag);
-    if (power >= MIN_POWER) {
-      Rules.launch(bodies, drag.body, nx, ny, power);
+    if (role === 'guest') {
+      hooks.action(power >= MIN_POWER ? { t: 'launch', id: drag.body.id, nx, ny, power } : { t: 'aimEnd' });
+      hostSettled = power < MIN_POWER;
+    } else if (power >= MIN_POWER) {
+      doLaunch(drag.body, nx, ny, power);
       setStatus('Pieces in motion…');
     } else {
       setStatus(AIM_HELP);
@@ -370,9 +441,149 @@
 
   canvas.addEventListener('pointercancel', () => {
     if (moving) { moving.body.x = moving.ox; moving.body.y = moving.oy; }
-    if (drag && !drag.cpu) drag = null;
+    if (drag && !drag.auto) {
+      drag = null;
+      if (role === 'guest') hooks.action({ t: 'aimEnd' });
+    }
     moving = null;
   });
+
+  // ---------- online: host side ----------
+
+  // A remote player's move, checked against the rules before it touches the board.
+  function applyRemote(team, msg) {
+    if (role !== 'local' || !isRemote(team) || winner) return;
+    const own = bodies.find(b => b.id === msg.id && b.team === team && b.kind === 'unit' && !b.gone);
+    if (msg.t === 'picks' && phase === 'select' && setupTeam === team) {
+      const clean = cleanPicks(msg.picks);
+      if (clean) { picks = clean; beginPlace(); }
+    } else if (msg.t === 'move' && phase === 'place' && setupTeam === team && own) {
+      if (own.safeX === undefined) { own.safeX = own.x; own.safeY = own.y; }
+      const pos = clampToZone(own, Number(msg.x) || 0, Number(msg.y) || 0);
+      own.x = pos.x;
+      own.y = pos.y;
+      if (msg.final) {
+        // a drop on top of another unit goes back to the last legal spot
+        if (overlapsOther(own)) { own.x = own.safeX; own.y = own.safeY; }
+        own.safeX = own.x;
+        own.safeY = own.y;
+      }
+    } else if (msg.t === 'ready' && phase === 'place' && setupTeam === team) {
+      advanceSetup();
+    } else if (msg.t === 'aim' && phase === 'battle' && turn === team && own && Physics.isSettled(bodies)) {
+      drag = { body: own, px: Number(msg.px) || own.x, py: Number(msg.py) || own.y, auto: true };
+    } else if (msg.t === 'aimEnd') {
+      if (drag && drag.auto && drag.body.team === team) drag = null;
+    } else if (msg.t === 'launch' && phase === 'battle' && turn === team && own && Physics.isSettled(bodies)) {
+      const len = Math.hypot(Number(msg.nx), Number(msg.ny));
+      const power = Math.min(1, Math.max(0, Number(msg.power) || 0));
+      if (!len || power < MIN_POWER) return;
+      drag = null;
+      doLaunch(own, msg.nx / len, msg.ny / len, power);
+      setStatus('Pieces in motion…');
+    }
+  }
+
+  // The computer takes over an army whose player left.
+  function takeOver(team) {
+    if (!isRemote(team)) return;
+    delete match.remote[team];
+    match.cpu[team] = true;
+    match.names[team] += ' (computer)';
+    if (winner) return;
+    if (drag && drag.auto && drag.body.team === team) drag = null;
+    if (phase === 'select' && setupTeam === team) beginSelect(setupIndex);
+    else if (phase === 'place' && setupTeam === team) later(400, advanceSetup);
+    else if (phase === 'battle' && turn === team && Physics.isSettled(bodies)) startCpuTurn();
+    if (phase === 'battle') updateTurnBadge();
+  }
+
+  // Everything a guest needs to draw the board.
+  function snapshot() {
+    const r = n => Math.round(n * 10) / 10;
+    return {
+      teams: match.teams,
+      names: match.names,
+      phase, setupTeam, turn, turnNo, winner,
+      settled: Physics.isSettled(bodies),
+      status: statusEl.textContent,
+      badge: { cls: turnEl.className, text: turnEl.textContent },
+      result: winner ? {
+        title: document.getElementById('overlay-title').textContent,
+        text: document.getElementById('overlay-text').textContent,
+      } : null,
+      aim: drag ? { id: drag.body.id, px: r(drag.px), py: r(drag.py) } : null,
+      bodies: bodies.filter(b => !b.gone).map(b => ({
+        id: b.id, kind: b.kind, type: b.type, team: b.team, projectile: b.projectile,
+        x: r(b.x), y: r(b.y), vx: r(b.vx), vy: r(b.vy), r: b.r,
+        falling: b.falling, fallT: r(b.fallT),
+      })),
+    };
+  }
+
+  // ---------- online: guest side ----------
+
+  function loadSnapshot(s) {
+    if (s.teams.join() !== match.teams.join()) {
+      match.teams = s.teams;
+      arena = Arena.create(s.teams);
+    }
+    match.names = s.names;
+    const newSetupTurn = s.phase !== phase || s.setupTeam !== setupTeam;
+    phase = s.phase;
+    setupTeam = s.setupTeam;
+    turn = s.turn;
+    turnNo = s.turnNo;
+    winner = s.winner;
+    hostSettled = s.settled;
+
+    // follow the host's pieces, easing towards their positions
+    const old = new Map(bodies.map(b => [b.id, b]));
+    bodies = s.bodies.map(c => {
+      const b = old.get(c.id);
+      if (!b) return { ...c, tx: c.x, ty: c.y, gone: false };
+      Object.assign(b, { vx: c.vx, vy: c.vy, falling: c.falling, fallT: c.fallT, team: c.team });
+      if (!(moving && moving.body === b)) { b.tx = c.x; b.ty = c.y; }
+      return b;
+    });
+    if (moving && !bodies.includes(moving.body)) moving = null;
+
+    statusEl.textContent = s.status;
+    turnEl.className = s.badge.cls;
+    turnEl.textContent = s.badge.text;
+
+    // army picker for this player's setup turn
+    if (newSetupTurn) pickSent = false;
+    if (phase === 'select' && setupTeam === me && !pickSent) {
+      if (setupEl.hidden) { picks = {}; showPicker(); }
+    } else {
+      setupEl.hidden = true;
+    }
+    readyBtn.hidden = !(phase === 'place' && setupTeam === me);
+
+    // other players' aiming (this player's own drag stays local)
+    if (!(drag && !drag.auto)) {
+      const aimBody = s.aim && bodies.find(b => b.id === s.aim.id);
+      drag = aimBody ? { body: aimBody, px: s.aim.px, py: s.aim.py, auto: true } : null;
+    }
+
+    if (s.result) {
+      document.getElementById('overlay-title').textContent = s.result.title;
+      document.getElementById('overlay-text').textContent = s.result.text;
+    }
+    overlayEl.hidden = !s.result;
+  }
+
+  // ease displayed pieces towards the host's latest positions
+  function followHost(dt) {
+    const k = Math.min(1, dt * 18);
+    for (const b of bodies) {
+      if (moving && moving.body === b) continue;
+      if (Math.hypot(b.tx - b.x, b.ty - b.y) > 250) { b.x = b.tx; b.y = b.ty; continue; }
+      b.x += (b.tx - b.x) * k;
+      b.y += (b.ty - b.y) * k;
+    }
+  }
 
   document.getElementById('reset').addEventListener('click', newMatch);
   document.getElementById('play-again').addEventListener('click', newMatch);
@@ -711,7 +922,10 @@
   function frame(now) {
     const dt = Math.min((now - lastTime) / 1000, 0.1);
     lastTime = now;
-    if (!paused) {
+    if (role === 'guest') {
+      followHost(dt);
+      render(phase === 'battle' && hostSettled && !winner && turn === me);
+    } else if (!paused) {
       clock += dt * 1000;
       // delayed steps (computer setup and aiming) wait for game time, so they pause with it
       const due = tasks.filter(t => t.at <= clock);
@@ -727,7 +941,8 @@
       const settled = Physics.isSettled(bodies);
       if (wasMoving && settled) endTurn();
       wasMoving = !settled;
-      render(phase === 'battle' && settled && !winner && !isCpu(turn));
+      render(phase === 'battle' && settled && !winner && isLocal(turn));
+      if (hooks.tick) hooks.tick();
     }
     requestAnimationFrame(frame);
   }
@@ -763,8 +978,12 @@
         teams: opts.teams,
         names: opts.names,
         cpu: opts.cpu || {},
+        remote: opts.remote || {},
         level: opts.level || 'normal',
       };
+      role = 'local';
+      me = null;
+      hooks = { tick: opts.onTick };
       started = true;
       paused = false;
       resize();
@@ -776,6 +995,38 @@
       resize();
     },
     pause() { paused = true; },
+    // online host
+    snapshot,
+    applyRemote,
+    takeOver,
+    // online guest: mirror the host's board, send this player's moves through onAction
+    join(team, onAction) {
+      role = 'guest';
+      me = team;
+      hooks = { action: onAction };
+      started = true;
+      paused = false;
+      bodies = [];
+      phase = '';
+      setupTeam = '';
+      winner = null;
+      drag = null;
+      moving = null;
+      tasks = [];
+      overlayEl.hidden = true;
+      setupEl.hidden = true;
+      resize();
+    },
+    load: loadSnapshot,
+    // stop being part of an online match
+    leave() {
+      role = 'local';
+      me = null;
+      hooks = {};
+      started = false;
+      paused = true;
+    },
+    get role() { return role; },
     // a match has been started and is not yet decided
     inProgress() { return started && !winner; },
   };
