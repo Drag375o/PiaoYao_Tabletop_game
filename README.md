@@ -1,5 +1,19 @@
-The following game is a Piao game ispired web game 
-that can be played via netlify 
+The following game is a Piao game inspired web game
+that can be played via Netlify.
+
+## Web version
+
+A static HTML/canvas site with no build step, so Netlify can serve the folder as-is.
+
+**Run locally:** from the project folder run `python -m http.server 8000` and open http://localhost:8000.
+
+**Controls:** press on a piece, drag backwards (like a slingshot) and release. A longer pull gives more force (the yellow ring shows power). A very short pull cancels the launch.
+
+**Current status (step 1 – board and physics):**
+- Each side starts with 5 pieces in a default formation (red left, blue right).
+- Pieces slide with friction and collide with momentum-based knockback, including chain collisions.
+- A piece is eliminated when its centre crosses the board edge.
+- Any piece can be launched once the board is at rest. Unit types, turns and the win condition are not in yet.
 
 The game instruction are as follows :
 # Piaoyao Battleboard
