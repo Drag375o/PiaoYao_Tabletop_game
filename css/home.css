@@ -91,6 +91,41 @@
   font-size: 0.98rem;
 }
 
+/* ---------- who's playing ---------- */
+
+.choice-row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.chip {
+  padding: 0.35em 0.95em;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 1.02rem;
+}
+
+.chip:hover:not(:disabled) { border-color: var(--ink); background: transparent; transform: rotate(-1deg); }
+.chip.selected { border-color: var(--ink); background: var(--highlight); font-weight: 700; }
+.chip.small { font-size: 0.95rem; padding: 0.2em 0.8em; }
+
+.level-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.level-row[hidden] { display: none; }
+
+.level-row > span {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: 1.08rem;
+}
+
 /* ---------- commanders ---------- */
 
 .commanders {
@@ -125,6 +160,7 @@
 }
 
 .name-input:focus { border-bottom-width: 4px; }
+.name-input:disabled { opacity: 0.75; }
 
 /* ---------- unit cards ---------- */
 

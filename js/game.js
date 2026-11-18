@@ -1,22 +1,12 @@
-// Piaoyao Battleboard: board, input and rendering.
+// Piaoyao Battleboard: match flow, input and rendering.
 (() => {
   const WORLD = { w: 1000, h: 680 };
-  const BOARD = { x: 90, y: 60, w: 820, h: 560 };
   const MAX_DRAG = 150;        // world px of pull-back for full power
-  const MAX_SPEED = 1150;      // default launch speed at full power (px/s)
   const MIN_POWER = 0.06;      // releases weaker than this are cancelled
   const GLYPH_FONT = '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Hiragino Sans GB", sans-serif';
-  const TEAM_NAMES = { red: 'Red', blue: 'Blue' };   // replaced by the commanders' names from the start page
   const AIM_HELP = 'Drag one of your units backwards and release to launch it.';
-
-  // Default formation, as fractions of each team's half (x from its own back edge).
-  const FORMATION = [
-    { fx: 0.18, fy: 0.5 },
-    { fx: 0.38, fy: 0.3 },
-    { fx: 0.38, fy: 0.7 },
-    { fx: 0.62, fy: 0.42 },
-    { fx: 0.62, fy: 0.58 },
-  ];
+  const CPU_THINK_MS = 650;    // pause before the computer aims
+  const CPU_AIM_MS = 700;      // how long the computer's pull-back takes to draw
 
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
@@ -26,19 +16,33 @@
   const setupEl = document.getElementById('setup');
   const readyBtn = document.getElementById('ready');
 
+  // who is playing; set by Game.start() from the start page
+  let match = { mode: 'pvp', teams: ['red', 'blue'], names: { red: 'Red', blue: 'Blue' }, cpu: {}, level: 'normal' };
+  let arena = Arena.create(match.teams);
+
   let bodies = [];
   let drag = null;     // { body, px, py } while aiming
   let moving = null;   // { body, ox, oy, dx, dy } while placing a unit during setup
   let phase = 'select';     // 'select' | 'place' | 'battle'
-  let setupTeam = 'red';    // team choosing or placing its army
+  let setupIndex = 0;       // which army is choosing or placing
+  let setupTeam = 'red';
   let picks = {};           // unit type -> count while choosing an army
   let turn = 'red';    // team whose turn it is
   let turnNo = 1;
-  let winner = null;   // 'red' | 'blue' | 'draw' once the match is over
+  let winner = null;   // a team, or 'draw', once the match is over
+  let started = false; // a match has been started from the start page
+  let paused = false;  // the start page is showing
+  let tasks = [];      // { at, fn } delayed steps, run by the game loop (so they pause with it)
+  let cpuAim = null;   // { body, nx, ny, power, t0 } while the computer draws its shot
   let view = { scale: 1, ox: 0, oy: 0 };
   let lastTime = performance.now();
+  let clock = 0;       // game time in ms, stops while paused
 
   let nextId = 1;   // stable id per unit, seeds the hand-drawn outlines
+
+  function name(team) { return match.names[team]; }
+  function isCpu(team) { return !!match.cpu[team]; }
+  function later(ms, fn) { tasks.push({ at: clock + ms, fn }); }
 
   function makeUnit(type, team, x, y) {
     const def = UNITS[type];
@@ -48,28 +52,42 @@
     });
   }
 
-  // ---------- match setup: choose an army, then place it ----------
+  // ---------- match setup: each army chooses its units, then places them ----------
 
   function newMatch() {
+    arena = Arena.create(match.teams);
     bodies = [];
     drag = null;
     moving = null;
-    turn = 'red';
+    cpuAim = null;
+    tasks = [];
+    turn = match.teams[0];
     turnNo = 1;
     winner = null;
     overlayEl.hidden = true;
-    beginSelect('red');
+    beginSelect(0);
   }
 
-  function beginSelect(team) {
+  function beginSelect(index) {
     phase = 'select';
-    setupTeam = team;
+    setupIndex = index;
+    setupTeam = match.teams[index];
     picks = {};
-    turnEl.className = 'turn ' + team;
-    turnEl.textContent = `${TEAM_NAMES[team]} · Army`;
-    document.getElementById('setup-title').textContent = `${TEAM_NAMES[team]}: choose your army`;
-    setStatus(`${TEAM_NAMES[team]}: choose up to ${TEAM_SIZE} units.`);
     readyBtn.hidden = true;
+    turnEl.className = 'turn ' + setupTeam;
+    turnEl.textContent = `${name(setupTeam)} · Army`;
+    if (isCpu(setupTeam)) {
+      // the computer picks and places at once, then hands over
+      setupEl.hidden = true;
+      picks = AI.chooseArmy();
+      placeArmy(setupTeam);
+      phase = 'place';
+      setStatus(`${name(setupTeam)} is lining up its army…`);
+      later(700, advanceSetup);
+      return;
+    }
+    document.getElementById('setup-title').textContent = `${name(setupTeam)}: choose your army`;
+    setStatus(`${name(setupTeam)}: choose up to ${TEAM_SIZE} units.`);
     renderPicker();
     setupEl.hidden = false;
   }
@@ -124,58 +142,48 @@
     if (pickTotal() > 0) beginPlace();
   });
 
-  function slotPosition(team, slot) {
-    const dx = slot.fx * BOARD.w / 2;
-    return {
-      x: team === 'red' ? BOARD.x + dx : BOARD.x + BOARD.w - dx,
-      y: BOARD.y + slot.fy * BOARD.h,
-    };
-  }
-
-  // Put the chosen units into the default formation (back to front), ready to be rearranged.
-  function beginPlace() {
+  // Put the chosen units into the default formation (back to front).
+  function placeArmy(team) {
     const army = [];
     for (const type of DEFAULT_LINEUP) {
       for (let i = 0; i < (picks[type] || 0); i++) army.push(type);
     }
     army.forEach((type, i) => {
-      const { x, y } = slotPosition(setupTeam, FORMATION[i]);
-      bodies.push(makeUnit(type, setupTeam, x, y));
+      const { x, y } = arena.slot(team, i);
+      bodies.push(makeUnit(type, team, x, y));
     });
+  }
+
+  function beginPlace() {
+    placeArmy(setupTeam);
     phase = 'place';
     setupEl.hidden = true;
     readyBtn.hidden = false;
-    turnEl.textContent = `${TEAM_NAMES[setupTeam]} · Formation`;
-    setStatus(`${TEAM_NAMES[setupTeam]}: drag your units anywhere in your half, then press Ready.`);
+    turnEl.textContent = `${name(setupTeam)} · Formation`;
+    setStatus(`${name(setupTeam)}: drag your units anywhere in your zone, then press Ready.`);
+  }
+
+  function advanceSetup() {
+    if (setupIndex < match.teams.length - 1) beginSelect(setupIndex + 1);
+    else startBattle();
   }
 
   readyBtn.addEventListener('click', () => {
-    if (phase !== 'place') return;
-    if (setupTeam === 'red') beginSelect('blue');
-    else startBattle();
+    if (phase === 'place' && !isCpu(setupTeam)) advanceSetup();
   });
 
   function startBattle() {
     phase = 'battle';
     readyBtn.hidden = true;
-    turn = 'red';
+    turn = match.teams[0];
     turnNo = 1;
     updateTurnBadge();
-    setStatus(`${TEAM_NAMES.red} goes first. ${AIM_HELP}`);
-  }
-
-  function setupZone(team) {
-    const half = BOARD.w / 2;
-    return { x: team === 'red' ? BOARD.x : BOARD.x + half, y: BOARD.y, w: half, h: BOARD.h };
+    setStatus(`${name(turn)} goes first. ${AIM_HELP}`);
+    if (isCpu(turn)) startCpuTurn();
   }
 
   function clampToZone(body, x, y) {
-    const z = setupZone(body.team);
-    const pad = body.r + 6;
-    return {
-      x: Math.min(Math.max(x, z.x + pad), z.x + z.w - pad),
-      y: Math.min(Math.max(y, z.y + pad), z.y + z.h - pad),
-    };
+    return arena.clamp(body.team, body.r + 6, x, y);
   }
 
   function overlapsOther(body) {
@@ -186,7 +194,7 @@
 
   function updateTurnBadge() {
     turnEl.className = 'turn ' + turn;
-    turnEl.textContent = `Turn ${turnNo} · ${TEAM_NAMES[turn]}`;
+    turnEl.textContent = `Turn ${turnNo} · ${name(turn)}`;
   }
 
   function units() { return bodies.filter(b => b.kind === 'unit' && !b.gone); }
@@ -196,97 +204,70 @@
   // Called once everything has stopped after a launch.
   function endTurn() {
     bodies = bodies.filter(b => !b.gone);
-    const red = teamCount('red'), blue = teamCount('blue');
-    if (red === 0 || blue === 0) {
-      winner = red === blue ? 'draw' : red > 0 ? 'red' : 'blue';
-      showResult(red, blue);
+    const alive = match.teams.filter(t => teamCount(t) > 0);
+    if (alive.length <= 1) {
+      winner = alive[0] || 'draw';
+      showResult();
       return;
     }
-    turn = turn === 'red' ? 'blue' : 'red';
+    // next army in order that still has units
+    let i = match.teams.indexOf(turn);
+    do { i = (i + 1) % match.teams.length; } while (teamCount(match.teams[i]) === 0);
+    turn = match.teams[i];
     turnNo++;
     updateTurnBadge();
-    setStatus(`${TEAM_NAMES.red} ${red} · ${TEAM_NAMES.blue} ${blue} units left. ${TEAM_NAMES[turn]}: ${AIM_HELP}`);
+    const counts = match.teams.map(t => `${name(t)} ${teamCount(t)}`).join(' · ');
+    setStatus(`${counts} units left. ${name(turn)}: ${AIM_HELP}`);
+    if (isCpu(turn)) startCpuTurn();
   }
 
-  function showResult(red, blue) {
+  function showResult() {
     turnEl.className = 'turn' + (winner === 'draw' ? '' : ' ' + winner);
-    turnEl.textContent = winner === 'draw' ? 'Draw' : `${TEAM_NAMES[winner]} wins`;
+    turnEl.textContent = winner === 'draw' ? 'Draw' : `${name(winner)} wins`;
     document.getElementById('overlay-title').textContent =
-      winner === 'draw' ? 'Draw!' : `${TEAM_NAMES[winner]} wins!`;
-    const left = Math.max(red, blue);
+      winner === 'draw' ? 'Draw!' : `${name(winner)} wins!`;
+    const left = winner === 'draw' ? 0 : teamCount(winner);
     const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
     document.getElementById('overlay-text').textContent = winner === 'draw'
-      ? 'Both armies were knocked off the board on the same turn.'
-      : `${TEAM_NAMES[winner]} won in ${plural(turnNo, 'turn')} with ${plural(left, 'unit')} left on the board.`;
+      ? 'The last armies were knocked off the board on the same turn.'
+      : `${name(winner)} won in ${plural(turnNo, 'turn')} with ${plural(left, 'unit')} left on the board.`;
     setStatus('Match over.');
     overlayEl.hidden = false;
   }
 
+  // ---------- computer turns ----------
+
+  function startCpuTurn() {
+    setStatus(`${name(turn)} is thinking…`);
+    later(CPU_THINK_MS, () => {
+      const shot = AI.chooseShot(bodies, turn, arena, match.level);
+      const body = shot && bodies.find(b => b.id === shot.id);
+      if (!body) return;
+      cpuAim = { body, nx: shot.nx, ny: shot.ny, power: shot.power, t0: clock };
+      setStatus(`${name(turn)} aims its ${UNITS[body.type].name}…`);
+    });
+  }
+
+  // draws the computer's pull-back like a player's, then launches
+  function updateCpuAim() {
+    if (!cpuAim) return;
+    const { body, nx, ny, power, t0 } = cpuAim;
+    const t = (clock - t0) / CPU_AIM_MS;
+    const pull = Math.min(t, 1) * power * MAX_DRAG;
+    drag = { body, px: body.x - nx * pull, py: body.y - ny * pull, cpu: true };
+    if (t >= 1.25) {
+      Rules.launch(bodies, body, nx, ny, power);
+      drag = null;
+      cpuAim = null;
+      setStatus('Pieces in motion…');
+    }
+  }
+
   // ---------- abilities ----------
 
-  function flagBoost(body) {
-    const boosted = bodies.some(f =>
-      f !== body && f.type === 'flag' && f.team === body.team && !f.gone && !f.falling &&
-      Math.hypot(f.x - body.x, f.y - body.y) <= FLAG_AURA);
-    return boosted ? FLAG_BOOST : 1;
-  }
+  function flagBoost(body) { return Rules.flagBoost(bodies, body); }
 
-  function launch(body, nx, ny, power) {
-    const def = UNITS[body.type];
-    const boost = flagBoost(body);
-    if (def.fires) {
-      const p = PROJECTILES[def.fires];
-      const speed = p.speed * power * boost;
-      const off = body.r + p.r + 1;
-      bodies.push(Physics.makeBody({
-        kind: 'projectile', projectile: def.fires, team: body.team,
-        x: body.x + nx * off, y: body.y + ny * off,
-        vx: nx * speed, vy: ny * speed,
-        r: p.r, mass: p.mass, friction: p.friction, restitution: p.restitution,
-      }));
-      if (def.recoil) {
-        body.vx = -nx * def.recoil * power;
-        body.vy = -ny * def.recoil * power;
-      }
-    } else {
-      const speed = (def.maxSpeed || MAX_SPEED) * power * boost;
-      body.vx = nx * speed;
-      body.vy = ny * speed;
-    }
-  }
-
-  function onHit(a, b) {
-    // arrows break on the first unit they strike
-    if (a.projectile && PROJECTILES[a.projectile].oneHit && b.kind === 'unit') a.gone = true;
-    if (b.projectile && PROJECTILES[b.projectile].oneHit && a.kind === 'unit') b.gone = true;
-  }
-
-  // First unit an arrow fired from `body` along (nx, ny) would strike.
-  function predictArrowHit(body, nx, ny) {
-    const ar = PROJECTILES.arrow.r;
-    const ox = body.x + nx * (body.r + ar + 1);
-    const oy = body.y + ny * (body.r + ar + 1);
-    let best = null;
-    for (const u of units()) {
-      if (u === body || u.falling) continue;
-      const R = u.r + ar;
-      const fx = ox - u.x, fy = oy - u.y;
-      const bq = fx * nx + fy * ny;
-      const c = fx * fx + fy * fy - R * R;
-      const disc = bq * bq - c;
-      if (disc < 0) continue;
-      const t = -bq - Math.sqrt(disc);
-      if (t < 0) continue;
-      if (!best || t < best.t) best = { t, unit: u };
-    }
-    // distance until the arrow leaves the board
-    const tx = nx > 0 ? (BOARD.x + BOARD.w - ox) / nx : nx < 0 ? (BOARD.x - ox) / nx : Infinity;
-    const ty = ny > 0 ? (BOARD.y + BOARD.h - oy) / ny : ny < 0 ? (BOARD.y - oy) / ny : Infinity;
-    const exitT = Math.min(tx, ty);
-    if (best && best.t > exitT) best = null;
-    const t = best ? best.t : exitT;
-    return { ox, oy, cx: ox + nx * t, cy: oy + ny * t, unit: best && best.unit };
-  }
+  function predictArrowHit(body, nx, ny) { return Rules.predictArrowHit(bodies, arena, body, nx, ny); }
 
   // ---------- view / input ----------
 
@@ -333,17 +314,18 @@
   canvas.addEventListener('pointerdown', evt => {
     const p = toWorld(evt);
     if (phase === 'place') {
+      if (isCpu(setupTeam)) return;
       const body = pieceAt(p);
       if (!body || body.team !== setupTeam) return;
       moving = { body, ox: body.x, oy: body.y, dx: body.x - p.x, dy: body.y - p.y };
       canvas.setPointerCapture(evt.pointerId);
       return;
     }
-    if (phase !== 'battle' || winner || !Physics.isSettled(bodies)) return;
+    if (phase !== 'battle' || winner || isCpu(turn) || !Physics.isSettled(bodies)) return;
     const body = pieceAt(p);
     if (!body) return;
     if (body.team !== turn) {
-      setStatus(`It's ${TEAM_NAMES[turn]}'s turn. Pick one of your own units.`);
+      setStatus(`It's ${name(turn)}'s turn. Pick one of your own units.`);
       return;
     }
     drag = { body, px: p.x, py: p.y };
@@ -360,7 +342,7 @@
       moving.body.y = pos.y;
       return;
     }
-    if (!drag) return;
+    if (!drag || drag.cpu) return;
     drag.px = p.x; drag.py = p.y;
   });
 
@@ -375,10 +357,10 @@
       moving = null;
       return;
     }
-    if (!drag) return;
+    if (!drag || drag.cpu) return;
     const { nx, ny, power } = launchVector(drag);
     if (power >= MIN_POWER) {
-      launch(drag.body, nx, ny, power);
+      Rules.launch(bodies, drag.body, nx, ny, power);
       setStatus('Pieces in motion…');
     } else {
       setStatus(AIM_HELP);
@@ -388,7 +370,7 @@
 
   canvas.addEventListener('pointercancel', () => {
     if (moving) { moving.body.x = moving.ox; moving.body.y = moving.oy; }
-    drag = null;
+    if (drag && !drag.cpu) drag = null;
     moving = null;
   });
 
@@ -671,17 +653,24 @@
     ctx.fill();
   }
 
-  // during placement: dim the opponent's half and outline the player's own zone
+  // during placement: dim the other armies' zones and outline the player's own
   function drawSetupZone() {
-    const z = setupZone(setupTeam);
-    const other = setupZone(setupTeam === 'red' ? 'blue' : 'red');
     ctx.fillStyle = Themes.current.dim;
-    ctx.fillRect(other.x, other.y, other.w, other.h);
+    for (const t of match.teams) {
+      if (t === setupTeam) continue;
+      arena.zonePath(ctx, t);
+      ctx.fill();
+    }
+    ctx.save();
+    arena.zonePath(ctx, setupTeam);
+    ctx.clip();
     ctx.strokeStyle = teamColor(setupTeam);
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 6;
     ctx.setLineDash([12, 8]);
-    ctx.strokeRect(z.x + 4, z.y + 4, z.w - 8, z.h - 8);
+    arena.zonePath(ctx, setupTeam);
+    ctx.stroke();
     ctx.setLineDash([]);
+    ctx.restore();
   }
 
   // soft pulsing ring around the units the current player may launch or move
@@ -705,7 +694,7 @@
     ctx.fillStyle = T.void;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(view.scale, 0, 0, view.scale, view.ox, view.oy);
-    T.drawBoard(ctx, BOARD, T);
+    T.drawBoard(ctx, arena, T);
     if (phase === 'place') drawSetupZone();
     drawAuras();
     if (phase === 'place') drawTurnHighlights(setupTeam);
@@ -720,25 +709,34 @@
   let wasMoving = false;
 
   function frame(now) {
-    const dt = (now - lastTime) / 1000;
+    const dt = Math.min((now - lastTime) / 1000, 0.1);
     lastTime = now;
-    // physics only runs in battle, so units dragged during setup never shove each other
-    if (phase === 'battle') Physics.update(bodies, BOARD, dt, onHit);
-    // spent projectiles disappear once they stop
-    for (const b of bodies) {
-      if (b.kind === 'projectile' && !b.falling && b.vx === 0 && b.vy === 0) b.gone = true;
+    if (!paused) {
+      clock += dt * 1000;
+      // delayed steps (computer setup and aiming) wait for game time, so they pause with it
+      const due = tasks.filter(t => t.at <= clock);
+      tasks = tasks.filter(t => t.at > clock);
+      due.forEach(t => t.fn());
+      updateCpuAim();
+      // physics only runs in battle, so units dragged during setup never shove each other
+      if (phase === 'battle') Physics.update(bodies, arena, dt, Rules.onHit);
+      // spent projectiles disappear once they stop
+      for (const b of bodies) {
+        if (b.kind === 'projectile' && !b.falling && b.vx === 0 && b.vy === 0) b.gone = true;
+      }
+      const settled = Physics.isSettled(bodies);
+      if (wasMoving && settled) endTurn();
+      wasMoving = !settled;
+      render(phase === 'battle' && settled && !winner && !isCpu(turn));
     }
-    const settled = Physics.isSettled(bodies);
-    if (wasMoving && settled) endTurn();
-    wasMoving = !settled;
-    render(phase === 'battle' && settled && !winner);
     requestAnimationFrame(frame);
   }
 
   // test hook: lets automated browser tests read the board state
   window.__piaoyao = {
     get bodies() { return bodies; },
-    BOARD, WORLD,
+    get BOARD() { return arena; },
+    WORLD,
     worldToClient(x, y) {
       const rect = canvas.getBoundingClientRect();
       const dpr = canvas.width / rect.width;
@@ -752,21 +750,34 @@
     get winner() { return winner; },
     get phase() { return phase; },
     get theme() { return Themes.current.id; },
+    get match() { return match; },
+    get cpuBusy() { return tasks.length > 0 || !!cpuAim; },
   };
 
   // used by the start page (js/home.js)
   window.Game = {
-    // begin a fresh match with the commanders' names
-    start(names) {
-      TEAM_NAMES.red = names.red;
-      TEAM_NAMES.blue = names.blue;
+    // begin a fresh match. opts: { mode, teams, names, cpu, level }
+    start(opts) {
+      match = {
+        mode: opts.mode,
+        teams: opts.teams,
+        names: opts.names,
+        cpu: opts.cpu || {},
+        level: opts.level || 'normal',
+      };
+      started = true;
+      paused = false;
       resize();
       newMatch();
     },
     // back to a match left via the menu
-    resume() { resize(); },
-    // a match is under way and not yet decided
-    inProgress() { return !winner && (phase !== 'select' || setupTeam !== 'red' || pickTotal() > 0 || bodies.length > 0); },
+    resume() {
+      paused = false;
+      resize();
+    },
+    pause() { paused = true; },
+    // a match has been started and is not yet decided
+    inProgress() { return started && !winner; },
   };
 
   Themes.load();

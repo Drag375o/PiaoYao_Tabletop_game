@@ -17,9 +17,9 @@ const Physics = (() => {
     }, opts);
   }
 
+  // `board` is an arena (js/arena.js) that knows its own outline
   function isOnBoard(b, board) {
-    return b.x >= board.x && b.x <= board.x + board.w &&
-           b.y >= board.y && b.y <= board.y + board.h;
+    return board.contains(b.x, b.y);
   }
 
   function integrate(bodies, board, dt) {
@@ -98,5 +98,20 @@ const Physics = (() => {
     return bodies.every(b => b.gone || (!b.falling && b.vx === 0 && b.vy === 0));
   }
 
-  return { makeBody, update, isSettled, isOnBoard, FALL_TIME };
+  // Run the same fixed steps as the live game until everything stops (or maxTime runs out).
+  // Used by the computer player to try shots on a copy of the board.
+  function simulate(bodies, board, onHit, maxTime = 5) {
+    const maxSteps = Math.ceil(maxTime / STEP);
+    for (let i = 1; i <= maxSteps; i++) {
+      integrate(bodies, board, STEP);
+      collide(bodies, onHit);
+      if (i % 24 === 0) {
+        // spent projectiles disappear once they stop, as in the game
+        for (const b of bodies) if (b.kind === 'projectile' && !b.falling && b.vx === 0 && b.vy === 0) b.gone = true;
+        if (isSettled(bodies)) break;
+      }
+    }
+  }
+
+  return { makeBody, update, simulate, isSettled, isOnBoard, FALL_TIME };
 })();

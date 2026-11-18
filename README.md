@@ -9,7 +9,7 @@ A static HTML/canvas site with no build step, so Netlify can serve the folder as
 
 **Run locally:** from the project folder run `python -m http.server 8000` and open http://localhost:8000.
 
-**Start page:** the game opens on a start page in the Auction XI style. It has sections for the commanders' names (remembered in this browser), the five units, board style cards with live previews, and how to play. **To the battlefield** starts a match. **← Menu** in the game returns to the start page, which then offers **Resume match**.
+**Start page:** the game opens on a start page in the Auction XI style. It has sections for who's playing (vs Computer or 2 players on one screen), the commanders' names (remembered in this browser), the five units, board style cards with live previews, and how to play. **To the battlefield** starts a match. **← Menu** in the game returns to the start page, which then offers **Resume match**.
 
 **Board themes:** pick one from the **Board** menu in the top bar. Your choice is remembered in this browser. The styles come from the Auction XI project's themes:
 - **Battleboard** (default): warm wood and sand with cream game discs.
@@ -20,8 +20,11 @@ A static HTML/canvas site with no build step, so Netlify can serve the folder as
 
 **Controls:** press on a piece, drag backwards (like a slingshot) and release. A longer pull gives more force (the yellow ring shows power). A very short pull cancels the launch.
 
-**Current status (step 4 – army selection and formation):**
-- Two players share one screen (hot-seat). Red plays the left half, Blue the right.
+**Game modes:**
+- **vs Computer:** you command Red, and the computer commands Blue. It picks its own army and formation. On its turn it tries every unit against every enemy at several angles and strengths, plays each shot out with the real physics, and launches one of the best. **Easy** picks loosely and aims roughly, **Normal** is a fair fight, and **Hard** almost never misses.
+- **2 players · same screen:** hot-seat. Red plays the left half, Blue the right.
+
+**How a match runs:**
 - **Choose your army:** each player picks up to 5 units, and repeats are allowed (e.g. 3 Cavalry + 2 Shield Soldiers). **One of each** fills the default army.
 - **Set your formation:** the chosen units appear in a default formation in your half. Drag them anywhere inside your half (they can't overlap), then press **Ready**. Red sets up first, then Blue.
 - Red goes first in battle. On your turn you launch one of your own units (they pulse in your colour). The turn passes once every piece has stopped.

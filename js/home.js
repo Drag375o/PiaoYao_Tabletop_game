@@ -2,10 +2,13 @@
 // and switches between the start page and the game screen.
 (() => {
   const NAMES_KEY = 'piaoyao.names';
+  const SETTINGS_KEY = 'piaoyao.settings';
   const DEFAULT_NAMES = { red: 'Red', blue: 'Blue' };
+  const DEFAULT_SETTINGS = { mode: 'cpu', level: 'normal' };
+  const CPU_NAME = 'Computer';
 
   const RULES = [
-    ['Name your commanders', 'Red and Blue share one screen and take turns. Red plays first.'],
+    ['Pick your opponent', 'Play the computer, or a friend on the same screen. Red always plays first.'],
     ['Choose your army', 'Each side picks up to 5 units. Repeats are allowed: three Cavalry is a plan.'],
     ['Set your formation', 'Drag your units anywhere in your half, then press Ready.'],
     ['Aim and launch', 'Press one of your units, pull back like a slingshot and let go. A longer pull hits harder.'],
@@ -29,11 +32,24 @@
     try { localStorage.setItem(NAMES_KEY, JSON.stringify(names)); } catch (e) { /* storage blocked */ }
   }
 
+  function loadSettings() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+      if (saved && typeof saved === 'object') return { ...DEFAULT_SETTINGS, ...saved };
+    } catch (e) { /* storage blocked or bad data */ }
+    return { ...DEFAULT_SETTINGS };
+  }
+
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* storage blocked */ }
+  }
+
   function readNames() {
     const names = {};
     for (const team of ['red', 'blue']) {
       names[team] = nameInputs[team].value.trim() || DEFAULT_NAMES[team];
     }
+    if (settings.mode === 'cpu') names.blue = `${CPU_NAME}`;
     // two identical names would make every message ambiguous
     if (names.red.toLowerCase() === names.blue.toLowerCase()) {
       names.red += ' (Red)';
@@ -43,6 +59,51 @@
   }
 
   // ---------- sections ----------
+
+  let settings = loadSettings();
+  let blueName = '';   // the second player's name, kept while the computer has the seat
+
+  // who's playing: mode chips, difficulty and the commander inputs that depend on them
+  function renderMode() {
+    for (const chip of document.querySelectorAll('#mode-chips .chip')) {
+      chip.classList.toggle('selected', chip.dataset.mode === settings.mode);
+      chip.setAttribute('aria-pressed', chip.dataset.mode === settings.mode);
+    }
+    for (const chip of document.querySelectorAll('#level-chips .chip')) {
+      chip.classList.toggle('selected', chip.dataset.level === settings.level);
+      chip.setAttribute('aria-pressed', chip.dataset.level === settings.level);
+    }
+    const cpu = settings.mode === 'cpu';
+    document.getElementById('level-row').hidden = !cpu;
+    document.getElementById('commanders-note').textContent = cpu
+      ? 'You command Red. The computer commands Blue.'
+      : 'Two players, one screen. Take turns at the same device.';
+    document.getElementById('label-blue').textContent = cpu ? `Blue army · computer (${AI.LEVELS[settings.level].name})` : 'Blue army';
+    const blue = nameInputs.blue;
+    if (cpu && !blue.disabled) {
+      blueName = blue.value;
+      blue.value = CPU_NAME;
+    } else if (!cpu && blue.disabled) {
+      blue.value = blueName;
+    }
+    blue.disabled = cpu;
+  }
+
+  document.getElementById('mode-chips').addEventListener('click', evt => {
+    const chip = evt.target.closest('[data-mode]');
+    if (!chip) return;
+    settings.mode = chip.dataset.mode;
+    saveSettings();
+    renderMode();
+  });
+
+  document.getElementById('level-chips').addEventListener('click', evt => {
+    const chip = evt.target.closest('[data-level]');
+    if (!chip) return;
+    settings.level = chip.dataset.level;
+    saveSettings();
+    renderMode();
+  });
 
   function buildUnitCards() {
     const grid = document.getElementById('unit-cards');
@@ -139,6 +200,7 @@
   // ---------- navigation ----------
 
   function showHome() {
+    Game.pause();
     gameEl.hidden = true;
     homeEl.hidden = false;
     document.getElementById('resume-card').hidden = !Game.inProgress();
@@ -152,9 +214,16 @@
 
   document.getElementById('start').addEventListener('click', () => {
     const names = readNames();
-    saveNames({ red: nameInputs.red.value.trim() || DEFAULT_NAMES.red, blue: nameInputs.blue.value.trim() || DEFAULT_NAMES.blue });
+    const blue = settings.mode === 'cpu' ? blueName : nameInputs.blue.value;
+    saveNames({ red: nameInputs.red.value.trim() || DEFAULT_NAMES.red, blue: blue.trim() || DEFAULT_NAMES.blue });
     showGame();
-    Game.start(names);
+    Game.start({
+      mode: settings.mode,
+      teams: ['red', 'blue'],
+      names,
+      cpu: settings.mode === 'cpu' ? { blue: true } : {},
+      level: settings.level,
+    });
   });
 
   document.getElementById('resume').addEventListener('click', () => {
@@ -168,6 +237,7 @@
   const names = loadNames();
   nameInputs.red.value = names.red;
   nameInputs.blue.value = names.blue;
+  renderMode();
   buildUnitCards();
   buildThemeCards();
   buildRules();
