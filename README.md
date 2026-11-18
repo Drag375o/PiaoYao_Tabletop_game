@@ -3,7 +3,9 @@ that can be played via Netlify.
 
 ## Web version
 
-A static HTML/canvas site with no build step, so Netlify can serve the folder as-is.
+**Play online:** https://piaoyao-battleboard.netlify.app
+
+A static HTML/canvas site with no build step, so Netlify can serve the folder as-is (see `netlify.toml`).
 
 **Run locally:** from the project folder run `python -m http.server 8000` and open http://localhost:8000.
 
