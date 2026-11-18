@@ -9,6 +9,20 @@ This GitHub Pages site is the **main version** of the game. It is served straigh
 
 **Older Netlify copy:** https://piaoyao-battleboard.netlify.app is kept as-is. It is an earlier snapshot (start page and 2 players on one screen) and is no longer updated. `netlify.toml` belongs to it.
 
+### Screenshots
+
+| Start page | Two players: the Archer's guide line shows exactly what it will hit |
+|---|---|
+| ![Start page with the game modes, commanders and unit cards](docs/images/start-page.jpg) | ![Two-player battle on the default board, with an Archer aiming at a Shield Soldier](docs/images/battle-archer-aim.jpg) |
+| **vs Computer** (Midnight theme): the computer lines up its shot | **3 players** on the round arena (Chalkboard theme) |
+| ![The computer aiming its Artillery on the Midnight board](docs/images/vs-computer.jpg) | ![Three armies in their wedges on the round Chalkboard arena](docs/images/three-players.jpg) |
+| **Online room** for 3 players (Football pitch theme) | **On a phone** (Sketchbook theme) |
+| ![Online lobby with a room code and three players joined](docs/images/online-lobby.jpg) | <img src="docs/images/phone.jpg" alt="The game on a phone in the Sketchbook theme" width="220"> |
+
+**Board styles** (chosen on the start page or from the in-game Board menu):
+
+![Previews of the five board styles: Battleboard, Midnight, Chalkboard, Football pitch and Sketchbook](docs/images/board-styles.jpg)
+
 A static HTML/canvas site with no build step, so it can be served as-is. GitHub Pages serves the repo root (`.nojekyll` turns off Jekyll processing).
 
 **Run locally:** from the project folder run `python -m http.server 8000` and open http://localhost:8000.
